@@ -1,0 +1,94 @@
+{
+  "title": "销售数据分析报告",
+  "topic": "销售数据",
+  "created": "2026-01-15",
+  "data_source": "data/sales.csv",
+  "data_format": "csv",
+  "style": "corporate",
+  "output_formats": ["markdown", "html"],
+  "sections": [
+    {
+      "id": "cover",
+      "title": "销售数据分析报告",
+      "content_type": "text",
+      "content": "本报告基于2025年度销售数据自动生成，涵盖月度趋势、产品分布和区域对比分析。",
+      "style": "corporate"
+    },
+    {
+      "id": "data_overview",
+      "title": "数据概览",
+      "content_type": "kpi",
+      "content": "关键数据指标",
+      "style": "corporate",
+      "kpi_config": [
+        {"label": "总销售额", "value": "1,850", "unit": "万元"},
+        {"label": "订单数", "value": "3,420", "unit": "笔"},
+        {"label": "客单价", "value": "5,409", "unit": "元"},
+        {"label": "同比增长", "value": "23.5%", "unit": ""}
+      ]
+    },
+    {
+      "id": "monthly_trend",
+      "title": "月度销售趋势",
+      "content_type": "chart",
+      "content": "2025年各月销售额走势，呈现明显的季节性波动，Q4为销售高峰。",
+      "style": "corporate",
+      "chart_config": {
+        "type": "line",
+        "data": {
+          "title": "月度销售额趋势",
+          "labels": ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
+          "series": [
+            {"name": "2025年", "values": [120, 98, 135, 142, 158, 165, 178, 172, 189, 210, 245, 238]}
+          ],
+          "y_label": "销售额（万元）"
+        }
+      }
+    },
+    {
+      "id": "product_distribution",
+      "title": "产品类别分布",
+      "content_type": "chart",
+      "content": "各产品类别销售额占比，电子产品贡献最大。",
+      "style": "corporate",
+      "chart_config": {
+        "type": "pie",
+        "data": {
+          "title": "产品类别销售额占比",
+          "labels": ["电子产品", "服装", "食品", "家居", "其他"],
+          "values": [680, 420, 350, 280, 120]
+        }
+      }
+    },
+    {
+      "id": "regional_comparison",
+      "title": "区域销售对比",
+      "content_type": "chart",
+      "content": "各区域销售额对比，华东区域领先。",
+      "style": "corporate",
+      "chart_config": {
+        "type": "bar",
+        "data": {
+          "title": "区域销售额对比",
+          "labels": ["华东", "华南", "华北", "西南", "东北"],
+          "values": [520, 380, 350, 280, 200],
+          "y_label": "销售额（万元）"
+        }
+      }
+    },
+    {
+      "id": "conclusion",
+      "title": "结论与建议",
+      "content_type": "text",
+      "content": "基于以上分析，2025年销售表现良好，同比增长23.5%。建议：1）加大Q4促销力度；2）拓展华南市场；3）优化食品品类供应链。",
+      "style": "corporate"
+    }
+  ],
+  "data_profile": {
+    "row_count": 3420,
+    "column_count": 8,
+    "missing_cells": 45,
+    "completeness": 0.998,
+    "numeric_columns": ["销售额", "订单数", "客单价"]
+  }
+}

@@ -1,0 +1,141 @@
+---
+name: data-report-creator
+description: "Create professional data analysis reports from CSV/Excel/JSON data with mandatory user style selection: compliance-checked content, matplotlib charts (bar/line/pie/scatter/histogram/area), 10 visual styles, KPI cards, data tables, and Markdown/HTML/PDF export. Use for 数据分析报告, 数据报告, 自动报告, CSV分析, Excel分析, JSON分析, 数据可视化, 报告生成."
+---
+
+# 数据分析报告创作 Skill
+
+从数据文件（CSV/Excel/JSON）生成专业数据分析报告。**两条强制流程**：①生成前必须让用户选择风格；②报告必须通过合规检查。
+
+## 快速开始
+
+```bash
+cd data-report-creator
+pip install -r requirements.txt
+
+# 1. 从数据文件创建报告规划（会列出10种风格供用户选择）
+python scripts/planner.py "data/sales.csv" --output ../../work/my-report/report.json --style corporate
+
+# 2. 编辑 report.json：确认每节 style 是用户选定的风格，填写 content
+
+# 3. 合规检查
+python scripts/compliance.py ../../work/my-report/report.json
+
+# 4. 一键生成（自动生成图表→组装内容→导出 Markdown/HTML/PDF）
+python scripts/run_pipeline.py ../../work/my-report/report.json --work-dir ../../work/my-report
+```
+
+输出：`report.md` + `report.html` + `report.pdf`（可选）+ `charts/` 图表目录。
+
+## 工作流（6步，两步强制）
+
+```
+1. 数据加载与画像 (data_loader.py)
+   ↓ 自动检测格式，统计行数/列数/缺失值/数值列
+2. 报告规划 (planner.py)
+   ↓ 【强制】列出10种风格，必须让用户选择，写入 sections[].style
+3. 合规检查 (compliance.py) — 不通过必须停止
+4. 图表生成 (charts.py)
+   ↓ 根据每节 chart_config 生成 matplotlib 图表
+5. 报告组装 (composer.py)
+   ↓ 组装内容 + 图表 + KPI + 表格 + 风格
+6. 导出 (exporter.py)
+   ↓ 导出 Markdown / HTML / PDF
+```
+
+## 10种报告风格（用户必须选择）
+
+| # | style ID | 名称 | 适用场景 |
+|---|----------|------|----------|
+| 1 | `corporate` | 企业商务风 | 企业年报、商业分析 |
+| 2 | `minimal` | 极简素雅风 | 学术、技术报告 |
+| 3 | `vibrant` | 活力多彩风 | 营销、用户增长 |
+| 4 | `dark` | 暗色科技风 | 技术、运维、安全 |
+| 5 | `editorial` | 杂志编辑风 | 行业洞察、深度分析 |
+| 6 | `fresh` | 清新自然风 | 环保、健康、生活方式 |
+| 7 | `warm` | 温暖人文风 | 社会、教育、公益 |
+| 8 | `tech_blue` | 科技蓝风 | 产品、技术、数据 |
+| 9 | `retro` | 复古怀旧风 | 历史、文化、品牌传承 |
+| 10 | `dashboard` | 仪表盘风 | 实时监控、运营 |
+
+用户可选统一风格（`--style corporate`）或每节不同风格（编辑 report.json 的 `sections[].style`）。
+完整风格参数（配色/字体/布局/图表样式）见 [references/style-catalog.md](references/style-catalog.md)。
+
+## 核心规则
+
+- **【强制】风格选择**：生成前必须让用户从10种风格中选择，不得自动分配。
+- **【强制】合规检查**：报告必须通过合规检查才能进入生成流程。检查内容包括数据质量、结构完整性、敏感词、URL链接等。
+- **数据格式**：支持 CSV、Excel（.xlsx/.xls）、JSON、JSONL。
+- **图表类型**：bar、line、pie、scatter、histogram、area、table。
+- **输出格式**：Markdown（默认）、HTML（默认）、PDF（需 weasyprint）。
+- **配置驱动**：report.json 是唯一配置入口，所有脚本围绕它工作。
+
+## report.json 核心字段
+
+**顶层**：`title`, `data_source`, `data_format`, `style`, `output_formats`, `sections[]`, `data_profile`
+
+**每节**：
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `id` | ✓ | 节标识（cover / data_overview / col_XX / conclusion 等） |
+| `title` | ✓ | 节标题 |
+| `content_type` | ✓ | 内容类型（text / summary / chart / table / kpi / image） |
+| `style` | ✓ | **用户选定的风格ID**（见上方10种） |
+| `content` | ✓ | 文字内容 |
+| `chart_config` | | 图表配置（content_type=chart 时必填） |
+| `table_config` | | 表格配置（content_type=table 时） |
+| `kpi_config` | | KPI 配置（content_type=kpi 时） |
+
+完整字段说明见 [references/report-schema.md](references/report-schema.md)。
+可直接复制的模板：[assets/report.example.json](assets/report.example.json)。
+
+## 图表配置格式
+
+```json
+"chart_config": {
+  "type": "bar",
+  "data": {
+    "title": "月度销售额",
+    "labels": ["1月", "2月", "3月"],
+    "values": [120, 150, 180],
+    "x_label": "月份",
+    "y_label": "销售额（万元）"
+  }
+}
+```
+
+支持的图表类型和完整参数见 [references/providers.md](references/providers.md)。
+
+## 命令行参数
+
+| 参数 | 默认 | 说明 |
+|------|------|------|
+| `--work-dir` | 必填 | 输出目录 |
+| `--formats` | markdown,html | 输出格式（可选 pdf） |
+| `--force-charts` | false | 强制重新生成图表 |
+| `--skip-verify` | false | 跳过最终验证 |
+
+## 脚本清单
+
+| 脚本 | 用途 |
+|------|------|
+| `scripts/data_loader.py` | 数据加载与画像（CSV/Excel/JSON） |
+| `scripts/planner.py` | 从数据生成报告规划，**列出10种风格供用户选择** |
+| `scripts/styler.py` | 10种报告风格参数定义 |
+| `scripts/charts.py` | matplotlib 图表生成（6种类型） |
+| `scripts/compliance.py` | 合规检查（数据质量/结构/敏感词） |
+| `scripts/composer.py` | 报告组装（内容+图表+KPI+表格） |
+| `scripts/exporter.py` | 导出 Markdown/HTML/PDF |
+| `scripts/run_pipeline.py` | 一键流水线 |
+
+## 参考文档（按需加载）
+
+- [references/style-catalog.md](references/style-catalog.md) — 10种风格完整参数（配色/字体/布局/图表样式）
+- [references/report-schema.md](references/report-schema.md) — report.json 完整字段说明 + 最小可用示例
+- [references/providers.md](references/providers.md) — 图表类型/导出格式/依赖配置
+- [references/troubleshooting.md](references/troubleshooting.md) — 故障排查 + 质量检查清单 + 目录结构
+
+## 运行时依赖
+
+- Python 3.10+、pandas、openpyxl、matplotlib、Jinja2
+- 可选：WeasyPrint（PDF 导出）
