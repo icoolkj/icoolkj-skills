@@ -115,7 +115,7 @@ python scripts/run_pipeline.py ../../work/my-report/report.json --work-dir ../..
 
 | 提供商 | `--base-url` | `--model` 示例 |
 |--------|-------------|---------------|
-| DeepSeek | `https://api.deepseek.com/v1`（默认） | `deepseek-chat` |
+| DeepSeek | `https://api.deepseek.com/v1`（默认） | `deepseek-flash` |
 | OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
 | Moonshot (Kimi) | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` |
 | 智谱 (Zhipu) | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` |
@@ -132,7 +132,7 @@ python scripts/run_pipeline.py report.json --work-dir ./output --llm
 
 # 方式2：命令行参数（DeepSeek，默认）
 python scripts/run_pipeline.py report.json --work-dir ./output \
-  --llm --api-key "sk-..." --model "deepseek-chat"
+  --llm --api-key "sk-..." --model "deepseek-flash"
 
 # 方式3：OpenAI
 python scripts/run_pipeline.py report.json --work-dir ./output \
@@ -152,7 +152,7 @@ python scripts/run_pipeline.py report.json --work-dir ./output \
 | `--llm` | 启用 LLM 内容生成（默认只生成结论与建议） |
 | `--api-key` | API Key（或设 `LLM_API_KEY` / `OPENAI_API_KEY` 环境变量） |
 | `--base-url` | API 地址（或设 `LLM_BASE_URL` / `OPENAI_BASE_URL` 环境变量） |
-| `--model` | 模型名称，默认 `deepseek-chat` |
+| `--model` | 模型名称，默认 `deepseek-flash` |
 | `--llm-descriptions` | 同时生成各章节的数据分析描述 |
 | `--llm-summary` | 同时生成报告封面摘要 |
 
@@ -169,7 +169,7 @@ LLM 生成失败时不会中断流程，`[填写]` 占位符保留，可手动�
 | `--llm` | false | 启用 LLM 自动生成内容 |
 | `--api-key` | | OpenAI API Key |
 | `--base-url` | | OpenAI 兼容 API 地址 |
-| `--model` | deepseek-chat | LLM 模型名称 |
+| `--model` | deepseek-flash | LLM 模型名称 |
 | `--llm-descriptions` | false | 生成章节描述 |
 | `--llm-summary` | false | 生成报告摘要 |
 

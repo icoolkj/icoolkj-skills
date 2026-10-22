@@ -27,7 +27,7 @@ report.json 是报告项目的唯一配置入口。
   "enabled": true,
   "api_key": "",
   "base_url": "https://api.deepseek.com/v1",
-  "model": "deepseek-chat",
+  "model": "deepseek-flash",
   "generate_conclusions": true,
   "generate_descriptions": false,
   "generate_summary": false
@@ -39,7 +39,7 @@ report.json 是报告项目的唯一配置入口。
 | `enabled` | bool | false | 是否启用 LLM 生成 |
 | `api_key` | string | | API Key（优先用环境变量 `LLM_API_KEY` 或 `OPENAI_API_KEY`） |
 | `base_url` | string | `https://api.deepseek.com/v1` | API 地址（优先用环境变量 `LLM_BASE_URL` 或 `OPENAI_BASE_URL`） |
-| `model` | string | `deepseek-chat` | 模型名称 |
+| `model` | string | `deepseek-flash` | 模型名称 |
 | `generate_conclusions` | bool | true | 自动生成结论与建议（替换 `[填写]` 占位符） |
 | `generate_descriptions` | bool | false | 自动生成各章节分析描述 |
 | `generate_summary` | bool | false | 自动生成报告封面摘要 |
