@@ -108,20 +108,39 @@ python scripts/run_pipeline.py ../../work/my-report/report.json --work-dir ../..
 
 ## LLM 自动生成（可选）
 
-启用 LLM 后，报告中的 `[填写]` 占位符会自动替换为 AI 生成的专业内容：
+启用 LLM 后，报告中的 `[填写]` 占位符会自动替换为 AI 生成的专业内容。
+采用 OpenAI 兼容 API 协议（`/v1/chat/completions`），支持任何兼容该协议的模型提供商。
+
+### 支持的提供商示例
+
+| 提供商 | `--base-url` | `--model` 示例 |
+|--------|-------------|---------------|
+| OpenAI | `https://api.openai.com/v1`（默认） | `gpt-4o-mini` |
+| DeepSeek | `https://api.deepseek.com/v1` | `deepseek-chat` |
+| Moonshot (Kimi) | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` |
+| 智谱 (Zhipu) | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` |
+| 通义千问 (Qwen) | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-turbo` |
+| 百川 (Baichuan) | `https://api.baichuan-ai.com/v1` | `baichuan2-turbo` |
+| 自部署 (vLLM/Ollama) | `http://localhost:8000/v1` | 自定义 |
+
+### 使用方式
 
 ```bash
 # 方式1：环境变量
-export OPENAI_API_KEY="sk-..."
+export LLM_API_KEY="sk-..."
 python scripts/run_pipeline.py report.json --work-dir ./output --llm
 
-# 方式2：命令行参数
+# 方式2：命令行参数（OpenAI）
 python scripts/run_pipeline.py report.json --work-dir ./output \
   --llm --api-key "sk-..." --model "gpt-4o-mini"
 
-# 方式3：自定义 API 地址（兼容 OpenAI 协议的服务）
+# 方式3：DeepSeek
 python scripts/run_pipeline.py report.json --work-dir ./output \
-  --llm --api-key "your-key" --base-url "https://your-api.com/v1" --model "your-model"
+  --llm --api-key "sk-..." --base-url "https://api.deepseek.com/v1" --model "deepseek-chat"
+
+# 方式4：Moonshot (Kimi)
+python scripts/run_pipeline.py report.json --work-dir ./output \
+  --llm --api-key "sk-..." --base-url "https://api.moonshot.cn/v1" --model "moonshot-v1-8k"
 
 # 附加选项
 python scripts/run_pipeline.py report.json --work-dir ./output \
@@ -131,8 +150,8 @@ python scripts/run_pipeline.py report.json --work-dir ./output \
 | 参数 | 说明 |
 |------|------|
 | `--llm` | 启用 LLM 内容生成（默认只生成结论与建议） |
-| `--api-key` | OpenAI API Key（或设 `OPENAI_API_KEY` 环境变量） |
-| `--base-url` | API 地址（或设 `OPENAI_BASE_URL` 环境变量，兼容任何 OpenAI 协议服务） |
+| `--api-key` | API Key（或设 `LLM_API_KEY` / `OPENAI_API_KEY` 环境变量） |
+| `--base-url` | API 地址（或设 `LLM_BASE_URL` / `OPENAI_BASE_URL` 环境变量） |
 | `--model` | 模型名称，默认 `gpt-4o-mini` |
 | `--llm-descriptions` | 同时生成各章节的数据分析描述 |
 | `--llm-summary` | 同时生成报告封面摘要 |
@@ -166,7 +185,7 @@ LLM 生成失败时不会中断流程，`[填写]` 占位符保留，可手动�
 | `scripts/composer.py` | 报告组装（内容+图表+KPI+表格） |
 | `scripts/exporter.py` | 导出 Markdown/HTML/PDF |
 | `scripts/run_pipeline.py` | 一键流水线 |
-| `scripts/llm_writer.py` | LLM 自动生成结论与建议（需 OpenAI API） |
+| `scripts/llm_writer.py` | LLM 自动生成结论与建议（OpenAI 兼容 API） |
 
 ## 参考文档（按需加载）
 
@@ -179,4 +198,4 @@ LLM 生成失败时不会中断流程，`[填写]` 占位符保留，可手动�
 
 - Python 3.10+、pandas、openpyxl、matplotlib、Jinja2
 - 可选：WeasyPrint（PDF 导出）
-- 可选：openai（LLM 自动生成内容）
+- 可选：requests（LLM 自动生成内容，支持 OpenAI 兼容 API）

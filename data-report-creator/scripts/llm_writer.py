@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""LLM writer — calls OpenAI API to auto-generate report content.
+"""LLM writer — calls OpenAI-compatible API to auto-generate report content.
 
-Generates conclusions, data insights, and section descriptions
-based on data analysis results.
+Uses standard HTTP requests to call any OpenAI-compatible /v1/chat/completions
+endpoint. Supports OpenAI, DeepSeek, Moonshot, Zhipu, Qwen, and any provider
+that implements the OpenAI chat completions protocol.
 """
 
 from __future__ import annotations
@@ -12,29 +13,48 @@ import os
 from pathlib import Path
 from typing import Any
 
-try:
-    from openai import OpenAI
-    HAS_OPENAI = True
-except ImportError:
-    HAS_OPENAI = False
+import requests
 
 
+DEFAULT_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_MODEL = "gpt-4o-mini"
 DEFAULT_MAX_TOKENS = 1000
 DEFAULT_TEMPERATURE = 0.7
+REQUEST_TIMEOUT = 60
 
 
-def _get_client(api_key: str | None = None, base_url: str | None = None) -> Any:
-    if not HAS_OPENAI:
-        raise RuntimeError("openai package not installed. pip install openai")
-    key = api_key or os.environ.get("OPENAI_API_KEY")
+def _chat_completion(
+    prompt: str,
+    *,
+    api_key: str | None = None,
+    base_url: str | None = None,
+    model: str = DEFAULT_MODEL,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+    temperature: float = DEFAULT_TEMPERATURE,
+) -> str:
+    key = api_key or os.environ.get("OPENAI_API_KEY") or os.environ.get("LLM_API_KEY")
     if not key:
-        raise RuntimeError("OPENAI_API_KEY not set. Set env var or pass --api-key")
-    url = base_url or os.environ.get("OPENAI_BASE_URL")
-    kwargs: dict[str, Any] = {"api_key": key}
-    if url:
-        kwargs["base_url"] = url
-    return OpenAI(**kwargs)
+        raise RuntimeError(
+            "API key not set. Set OPENAI_API_KEY or LLM_API_KEY env var, or pass --api-key"
+        )
+    url = base_url or os.environ.get("OPENAI_BASE_URL") or os.environ.get("LLM_BASE_URL") or DEFAULT_BASE_URL
+    endpoint = url.rstrip("/") + "/chat/completions"
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+
+    resp = requests.post(endpoint, json=payload, headers=headers, timeout=REQUEST_TIMEOUT)
+    resp.raise_for_status()
+    data = resp.json()
+    return data["choices"][0]["message"]["content"].strip()
 
 
 def generate_conclusion(
@@ -47,8 +67,6 @@ def generate_conclusion(
     max_tokens: int = DEFAULT_MAX_TOKENS,
     temperature: float = DEFAULT_TEMPERATURE,
 ) -> str:
-    client = _get_client(api_key, base_url)
-
     context_parts = []
     context_parts.append(
         f"数据概况: {data_profile.get('row_count', 0)} 行, "
@@ -76,13 +94,11 @@ def generate_conclusion(
         f"数据分析结果:\n{context}"
     )
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=max_tokens,
-        temperature=temperature,
+    return _chat_completion(
+        prompt,
+        api_key=api_key, base_url=base_url, model=model,
+        max_tokens=max_tokens, temperature=temperature,
     )
-    return response.choices[0].message.content.strip()
 
 
 def generate_section_description(
@@ -95,8 +111,6 @@ def generate_section_description(
     max_tokens: int = 500,
     temperature: float = DEFAULT_TEMPERATURE,
 ) -> str:
-    client = _get_client(api_key, base_url)
-
     title = section.get("title", "")
     content_type = section.get("content_type", "")
     chart_config = section.get("chart_config", {})
@@ -122,13 +136,11 @@ def generate_section_description(
         "要求：语言专业简洁，使用中文，描述该章节的数据特征和关键发现。"
     )
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=max_tokens,
-        temperature=temperature,
+    return _chat_completion(
+        prompt,
+        api_key=api_key, base_url=base_url, model=model,
+        max_tokens=max_tokens, temperature=temperature,
     )
-    return response.choices[0].message.content.strip()
 
 
 def generate_report_summary(
@@ -142,8 +154,6 @@ def generate_report_summary(
     max_tokens: int = 300,
     temperature: float = DEFAULT_TEMPERATURE,
 ) -> str:
-    client = _get_client(api_key, base_url)
-
     prompt = (
         "你是一位专业数据分析师。为以下报告撰写一段简短的摘要（100-200字）。\n"
         f"报告标题: {title}\n"
@@ -154,13 +164,11 @@ def generate_report_summary(
         "要求：概述报告内容和核心发现，语言专业简洁，使用中文。"
     )
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=max_tokens,
-        temperature=temperature,
+    return _chat_completion(
+        prompt,
+        api_key=api_key, base_url=base_url, model=model,
+        max_tokens=max_tokens, temperature=temperature,
     )
-    return response.choices[0].message.content.strip()
 
 
 def enhance_report(
@@ -223,8 +231,8 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="LLM writer for report content generation")
     parser.add_argument("report_json", help="Path to report JSON")
-    parser.add_argument("--api-key", help="OpenAI API key (or set OPENAI_API_KEY env)")
-    parser.add_argument("--base-url", help="OpenAI base URL (or set OPENAI_BASE_URL env)")
+    parser.add_argument("--api-key", help="API key (or set OPENAI_API_KEY / LLM_API_KEY env)")
+    parser.add_argument("--base-url", help="API base URL (or set OPENAI_BASE_URL / LLM_BASE_URL env)")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="Model name")
     parser.add_argument("--no-conclusions", action="store_true", help="Skip conclusion generation")
     parser.add_argument("--descriptions", action="store_true", help="Generate section descriptions")

@@ -19,14 +19,15 @@ report.json 是报告项目的唯一配置入口。
 
 ## llm_config 格式（可选）
 
-启用 LLM 自动生成时，可在 report.json 中配置，也可通过命令行参数覆盖：
+启用 LLM 自动生成时，可在 report.json 中配置，也可通过命令行参数覆盖。
+采用 OpenAI 兼容 API 协议（`/v1/chat/completions`），支持任意兼容提供商。
 
 ```json
 "llm_config": {
   "enabled": true,
   "api_key": "",
-  "base_url": "",
-  "model": "gpt-4o-mini",
+  "base_url": "https://api.deepseek.com/v1",
+  "model": "deepseek-chat",
   "generate_conclusions": true,
   "generate_descriptions": false,
   "generate_summary": false
@@ -36,12 +37,19 @@ report.json 是报告项目的唯一配置入口。
 | 字段 | 类型 | 默认 | 说明 |
 |------|------|------|------|
 | `enabled` | bool | false | 是否启用 LLM 生成 |
-| `api_key` | string | | OpenAI API Key（优先用环境变量 `OPENAI_API_KEY`） |
-| `base_url` | string | | API 地址（优先用环境变量 `OPENAI_BASE_URL`） |
-| `model` | string | gpt-4o-mini | 模型名称 |
+| `api_key` | string | | API Key（优先用环境变量 `LLM_API_KEY` 或 `OPENAI_API_KEY`） |
+| `base_url` | string | `https://api.openai.com/v1` | API 地址（优先用环境变量 `LLM_BASE_URL` 或 `OPENAI_BASE_URL`） |
+| `model` | string | `gpt-4o-mini` | 模型名称 |
 | `generate_conclusions` | bool | true | 自动生成结论与建议（替换 `[填写]` 占位符） |
 | `generate_descriptions` | bool | false | 自动生成各章节分析描述 |
 | `generate_summary` | bool | false | 自动生成报告封面摘要 |
+
+常见提供商 base_url：
+- OpenAI: `https://api.openai.com/v1`
+- DeepSeek: `https://api.deepseek.com/v1`
+- Moonshot: `https://api.moonshot.cn/v1`
+- 智谱: `https://open.bigmodel.cn/api/paas/v4`
+- 通义千问: `https://dashscope.aliyuncs.com/compatible-mode/v1`
 
 命令行参数优先级高于 llm_config 中的设置。
 
