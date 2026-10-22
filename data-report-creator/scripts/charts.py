@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import platform
 from pathlib import Path
 from typing import Any
 
@@ -11,8 +12,45 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
+from matplotlib import font_manager
 
 from styler import get_style
+
+
+def _setup_chinese_font() -> None:
+    system = platform.system()
+    candidate_fonts = []
+
+    if system == "Windows":
+        candidate_fonts = [
+            "Microsoft YaHei", "SimHei", "SimSun", "KaiTi",
+            "Microsoft YaHei UI", "FangSong",
+        ]
+    elif system == "Darwin":
+        candidate_fonts = [
+            "PingFang SC", "Heiti SC", "STHeiti", "Arial Unicode MS",
+            "Hiragino Sans GB", "Songti SC",
+        ]
+    else:
+        candidate_fonts = [
+            "WenQuanYi Micro Hei", "WenQuanYi Zen Hei", "Noto Sans CJK SC",
+            "Noto Sans CJK", "Source Han Sans SC", "Source Han Sans CN",
+            "Droid Sans Fallback", "AR PL UMing CN",
+        ]
+
+    available_fonts = set(f.name for f in font_manager.fontManager.ttflist)
+
+    for font_name in candidate_fonts:
+        if font_name in available_fonts:
+            plt.rcParams["font.sans-serif"] = [font_name, "DejaVu Sans"]
+            plt.rcParams["axes.unicode_minus"] = False
+            return
+
+    plt.rcParams["font.sans-serif"] = ["DejaVu Sans"]
+    plt.rcParams["axes.unicode_minus"] = False
+
+
+_setup_chinese_font()
 
 
 CHART_TYPES = ("bar", "line", "pie", "scatter", "histogram", "area", "heatmap", "table")
