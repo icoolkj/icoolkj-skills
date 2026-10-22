@@ -77,7 +77,7 @@ def main() -> int:
                 generate_summary=args.llm_summary,
             )
             report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-            print("[OK] LLM content generated and saved")
+            print("[OK] LLM step completed and report saved")
         except Exception as exc:
             print(f"[WARN] LLM generation failed: {exc}")
             print("[INFO] Continuing without LLM content. Fill [填写] placeholders manually.")

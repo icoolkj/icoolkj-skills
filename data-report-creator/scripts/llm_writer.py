@@ -184,6 +184,12 @@ def enhance_report(
     data_profile = report.get("data_profile", {})
     sections = report.get("sections", [])
 
+    # Resolve effective config
+    eff_base_url = base_url or os.environ.get("OPENAI_BASE_URL") or os.environ.get("LLM_BASE_URL") or DEFAULT_BASE_URL
+    eff_model = model or DEFAULT_MODEL
+    print(f"[INFO] LLM provider: {eff_base_url}")
+    print(f"[INFO] LLM model: {eff_model}")
+
     section_summaries = []
     for s in sections:
         if s.get("content_type") in ("chart", "summary", "kpi"):
@@ -193,36 +199,65 @@ def enhance_report(
                 "chart_type": s.get("chart_config", {}).get("type", ""),
             })
 
+    actions_taken = []
+
     if generate_summary:
         title = report.get("title", "")
         section_titles = [s.get("title", "") for s in sections]
-        summary = generate_report_summary(
-            title, data_profile, section_titles,
-            api_key=api_key, base_url=base_url, model=model,
-        )
-        for s in sections:
-            if s.get("id") == "cover":
-                s["content"] = summary
-                break
+        cover_section = next((s for s in sections if s.get("id") == "cover"), None)
+        if cover_section:
+            print(f"[INFO] Generating report summary for cover section...")
+            summary = generate_report_summary(
+                title, data_profile, section_titles,
+                api_key=api_key, base_url=base_url, model=model,
+            )
+            cover_section["content"] = summary
+            actions_taken.append("summary")
+            print(f"[OK] Report summary generated ({len(summary)} chars)")
+        else:
+            print("[WARN] No cover section found, skipping summary generation")
 
     if generate_descriptions:
+        desc_count = 0
         for s in sections:
             if s.get("content_type") == "chart" and s.get("content", "").startswith("[填写]"):
+                print(f"[INFO] Generating description for section: {s.get('title', '')}")
                 desc = generate_section_description(
                     s, data_profile,
                     api_key=api_key, base_url=base_url, model=model,
                 )
                 s["content"] = desc
+                desc_count += 1
+        if desc_count:
+            actions_taken.append(f"{desc_count} descriptions")
+            print(f"[OK] Generated {desc_count} section descriptions")
+        else:
+            print("[INFO] No chart sections with [填写] placeholder found, skipping descriptions")
 
     if generate_conclusions:
-        for s in sections:
-            if s.get("id") == "conclusion" and s.get("content", "").startswith("[填写]"):
+        conclusion_section = next((s for s in sections if s.get("id") == "conclusion"), None)
+        if conclusion_section:
+            if conclusion_section.get("content", "").startswith("[填写]"):
+                print(f"[INFO] Generating conclusion via LLM...")
                 conclusion = generate_conclusion(
                     data_profile, section_summaries,
                     api_key=api_key, base_url=base_url, model=model,
                 )
-                s["content"] = conclusion
-                break
+                conclusion_section["content"] = conclusion
+                actions_taken.append("conclusion")
+                print(f"[OK] Conclusion generated ({len(conclusion)} chars)")
+            else:
+                print("[INFO] Conclusion section already has content, skipping LLM generation")
+        else:
+            print("[WARN] No conclusion section found (id='conclusion'), skipping conclusion generation")
+
+    if not actions_taken:
+        print("[INFO] No LLM calls were made. Ensure report.json has:")
+        print("       - A section with id='conclusion' and content='[填写]' for conclusion generation")
+        print("       - Chart sections with content='[填写]' for description generation (--llm-descriptions)")
+        print("       - A section with id='cover' for summary generation (--llm-summary)")
+    else:
+        print(f"[OK] LLM actions completed: {', '.join(actions_taken)}")
 
     return report
 
