@@ -10,7 +10,7 @@ description: "Create professional data analysis reports from CSV/Excel/JSON data
 ## 快速开始
 
 ```bash
-cd data-report-creator
+cd skills/data-report-creator
 pip install -r requirements.txt
 
 # 1. 从数据文件创建报告规划（会列出10种风格供用户选择）
@@ -106,6 +106,39 @@ python scripts/run_pipeline.py ../../work/my-report/report.json --work-dir ../..
 
 支持的图表类型和完整参数见 [references/providers.md](references/providers.md)。
 
+## LLM 自动生成（可选）
+
+启用 LLM 后，报告中的 `[填写]` 占位符会自动替换为 AI 生成的专业内容：
+
+```bash
+# 方式1：环境变量
+export OPENAI_API_KEY="sk-..."
+python scripts/run_pipeline.py report.json --work-dir ./output --llm
+
+# 方式2：命令行参数
+python scripts/run_pipeline.py report.json --work-dir ./output \
+  --llm --api-key "sk-..." --model "gpt-4o-mini"
+
+# 方式3：自定义 API 地址（兼容 OpenAI 协议的服务）
+python scripts/run_pipeline.py report.json --work-dir ./output \
+  --llm --api-key "your-key" --base-url "https://your-api.com/v1" --model "your-model"
+
+# 附加选项
+python scripts/run_pipeline.py report.json --work-dir ./output \
+  --llm --llm-descriptions --llm-summary
+```
+
+| 参数 | 说明 |
+|------|------|
+| `--llm` | 启用 LLM 内容生成（默认只生成结论与建议） |
+| `--api-key` | OpenAI API Key（或设 `OPENAI_API_KEY` 环境变量） |
+| `--base-url` | API 地址（或设 `OPENAI_BASE_URL` 环境变量，兼容任何 OpenAI 协议服务） |
+| `--model` | 模型名称，默认 `gpt-4o-mini` |
+| `--llm-descriptions` | 同时生成各章节的数据分析描述 |
+| `--llm-summary` | 同时生成报告封面摘要 |
+
+LLM 生成失败时不会中断流程，`[填写]` 占位符保留，可手动填写。
+
 ## 命令行参数
 
 | 参数 | 默认 | 说明 |
@@ -114,6 +147,12 @@ python scripts/run_pipeline.py ../../work/my-report/report.json --work-dir ../..
 | `--formats` | markdown,html | 输出格式（可选 pdf） |
 | `--force-charts` | false | 强制重新生成图表 |
 | `--skip-verify` | false | 跳过最终验证 |
+| `--llm` | false | 启用 LLM 自动生成内容 |
+| `--api-key` | | OpenAI API Key |
+| `--base-url` | | OpenAI 兼容 API 地址 |
+| `--model` | gpt-4o-mini | LLM 模型名称 |
+| `--llm-descriptions` | false | 生成章节描述 |
+| `--llm-summary` | false | 生成报告摘要 |
 
 ## 脚本清单
 
@@ -127,6 +166,7 @@ python scripts/run_pipeline.py ../../work/my-report/report.json --work-dir ../..
 | `scripts/composer.py` | 报告组装（内容+图表+KPI+表格） |
 | `scripts/exporter.py` | 导出 Markdown/HTML/PDF |
 | `scripts/run_pipeline.py` | 一键流水线 |
+| `scripts/llm_writer.py` | LLM 自动生成结论与建议（需 OpenAI API） |
 
 ## 参考文档（按需加载）
 
@@ -139,3 +179,4 @@ python scripts/run_pipeline.py ../../work/my-report/report.json --work-dir ../..
 
 - Python 3.10+、pandas、openpyxl、matplotlib、Jinja2
 - 可选：WeasyPrint（PDF 导出）
+- 可选：openai（LLM 自动生成内容）

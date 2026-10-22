@@ -15,6 +15,35 @@ report.json 是报告项目的唯一配置入口。
 | `output_formats` | string[] | | 输出格式，默认 ["markdown", "html"] |
 | `sections` | object[] | ✓ | 章节列表（见下） |
 | `data_profile` | object | | 数据画像（自动填充） |
+| `llm_config` | object | | LLM 配置（可选，见下） |
+
+## llm_config 格式（可选）
+
+启用 LLM 自动生成时，可在 report.json 中配置，也可通过命令行参数覆盖：
+
+```json
+"llm_config": {
+  "enabled": true,
+  "api_key": "",
+  "base_url": "",
+  "model": "gpt-4o-mini",
+  "generate_conclusions": true,
+  "generate_descriptions": false,
+  "generate_summary": false
+}
+```
+
+| 字段 | 类型 | 默认 | 说明 |
+|------|------|------|------|
+| `enabled` | bool | false | 是否启用 LLM 生成 |
+| `api_key` | string | | OpenAI API Key（优先用环境变量 `OPENAI_API_KEY`） |
+| `base_url` | string | | API 地址（优先用环境变量 `OPENAI_BASE_URL`） |
+| `model` | string | gpt-4o-mini | 模型名称 |
+| `generate_conclusions` | bool | true | 自动生成结论与建议（替换 `[填写]` 占位符） |
+| `generate_descriptions` | bool | false | 自动生成各章节分析描述 |
+| `generate_summary` | bool | false | 自动生成报告封面摘要 |
+
+命令行参数优先级高于 llm_config 中的设置。
 
 ## sections 章节字段
 

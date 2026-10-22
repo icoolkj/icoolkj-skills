@@ -4,10 +4,11 @@
 Pipeline:
   1. Load data and profile
   2. Compliance check
-  3. Chart generation
-  4. Report composition
-  5. Export to Markdown/HTML/PDF
-  6. Quality verification
+  3. LLM content generation (optional, requires OPENAI_API_KEY)
+  4. Chart generation
+  5. Report composition
+  6. Export to Markdown/HTML/PDF
+  7. Quality verification
 """
 
 from __future__ import annotations
@@ -30,6 +31,12 @@ def main() -> int:
     parser.add_argument("--force-charts", action="store_true", help="Regenerate charts even if files exist")
     parser.add_argument("--formats", nargs="*", default=None, help="Override output formats")
     parser.add_argument("--skip-verify", action="store_true", help="Skip final verification")
+    parser.add_argument("--llm", action="store_true", help="Enable LLM content generation")
+    parser.add_argument("--api-key", help="OpenAI API key (or set OPENAI_API_KEY env)")
+    parser.add_argument("--base-url", help="OpenAI base URL (or set OPENAI_BASE_URL env)")
+    parser.add_argument("--model", default="gpt-4o-mini", help="LLM model name")
+    parser.add_argument("--llm-descriptions", action="store_true", help="Generate section descriptions")
+    parser.add_argument("--llm-summary", action="store_true", help="Generate report summary")
     args = parser.parse_args()
 
     report_path = Path(args.report_json)
@@ -54,6 +61,26 @@ def main() -> int:
             print(f"[FAIL] {issue}")
         return 2
     print("[OK] Compliance passed")
+
+    # --- LLM content generation (optional) ---
+    if args.llm:
+        try:
+            from llm_writer import enhance_report
+            print("[INFO] LLM content generation enabled")
+            report = enhance_report(
+                report,
+                api_key=args.api_key,
+                base_url=args.base_url,
+                model=args.model,
+                generate_conclusions=True,
+                generate_descriptions=args.llm_descriptions,
+                generate_summary=args.llm_summary,
+            )
+            report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+            print("[OK] LLM content generated and saved")
+        except Exception as exc:
+            print(f"[WARN] LLM generation failed: {exc}")
+            print("[INFO] Continuing without LLM content. Fill [填写] placeholders manually.")
 
     # --- Compose report (generates charts) ---
     composed = compose_report(report, work_dir)
