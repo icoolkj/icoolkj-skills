@@ -34,7 +34,7 @@ def main() -> int:
     parser.add_argument("--llm", action="store_true", help="Enable LLM content generation")
     parser.add_argument("--api-key", help="OpenAI API key (or set OPENAI_API_KEY env)")
     parser.add_argument("--base-url", help="OpenAI base URL (or set OPENAI_BASE_URL env)")
-    parser.add_argument("--model", default="gpt-4o-mini", help="LLM model name")
+    parser.add_argument("--model", default="deepseek-chat", help="LLM model name")
     parser.add_argument("--llm-descriptions", action="store_true", help="Generate section descriptions")
     parser.add_argument("--llm-summary", action="store_true", help="Generate report summary")
     args = parser.parse_args()

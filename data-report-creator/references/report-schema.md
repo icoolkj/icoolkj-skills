@@ -38,15 +38,15 @@ report.json 是报告项目的唯一配置入口。
 |------|------|------|------|
 | `enabled` | bool | false | 是否启用 LLM 生成 |
 | `api_key` | string | | API Key（优先用环境变量 `LLM_API_KEY` 或 `OPENAI_API_KEY`） |
-| `base_url` | string | `https://api.openai.com/v1` | API 地址（优先用环境变量 `LLM_BASE_URL` 或 `OPENAI_BASE_URL`） |
-| `model` | string | `gpt-4o-mini` | 模型名称 |
+| `base_url` | string | `https://api.deepseek.com/v1` | API 地址（优先用环境变量 `LLM_BASE_URL` 或 `OPENAI_BASE_URL`） |
+| `model` | string | `deepseek-chat` | 模型名称 |
 | `generate_conclusions` | bool | true | 自动生成结论与建议（替换 `[填写]` 占位符） |
 | `generate_descriptions` | bool | false | 自动生成各章节分析描述 |
 | `generate_summary` | bool | false | 自动生成报告封面摘要 |
 
 常见提供商 base_url：
+- DeepSeek: `https://api.deepseek.com/v1`（默认）
 - OpenAI: `https://api.openai.com/v1`
-- DeepSeek: `https://api.deepseek.com/v1`
 - Moonshot: `https://api.moonshot.cn/v1`
 - 智谱: `https://open.bigmodel.cn/api/paas/v4`
 - 通义千问: `https://dashscope.aliyuncs.com/compatible-mode/v1`
