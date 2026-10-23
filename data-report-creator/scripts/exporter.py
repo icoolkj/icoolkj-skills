@@ -2,12 +2,15 @@
 """Report exporter — outputs Markdown, HTML, and PDF formats.
 
 Uses Jinja2 templates for HTML, direct Markdown generation,
-and WeasyPrint or xhtml2pdf for PDF (with HTML intermediate).
+and reportlab for PDF (direct rendering, no HTML intermediate).
+WeasyPrint is optional for higher-quality PDF via HTML.
 """
 
 from __future__ import annotations
 
 import json
+import os
+import platform
 from pathlib import Path
 from typing import Any
 
@@ -216,145 +219,6 @@ tr:nth-child(even) td { background: rgba(0,0,0,0.02); }
 """
 
 
-# Simplified HTML template for PDF rendering (xhtml2pdf compatible)
-# No CSS variables, no grid, no flexbox — just basic inline-compatible CSS
-PDF_HTML_TEMPLATE = """<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<title>{{ title }}</title>
-<style>
-body {
-  font-family: Arial, sans-serif;
-  font-size: 12px;
-  line-height: 1.6;
-  color: #333333;
-  margin: 20px;
-}
-h1 {
-  color: {{ style_profile.primary_color }};
-  font-size: 22px;
-  border-bottom: 2px solid {{ style_profile.accent_color }};
-  padding-bottom: 8px;
-  margin-bottom: 6px;
-}
-h2 {
-  color: {{ style_profile.primary_color }};
-  font-size: 16px;
-  margin-top: 24px;
-  margin-bottom: 8px;
-  border-left: 3px solid {{ style_profile.accent_color }};
-  padding-left: 10px;
-}
-.meta {
-  color: {{ style_profile.secondary_color }};
-  font-size: 11px;
-  margin-bottom: 20px;
-}
-.kpi-table {
-  width: 100%;
-  margin: 12px 0;
-  border-collapse: collapse;
-}
-.kpi-table td {
-  background-color: {{ style_profile.primary_color }};
-  color: white;
-  text-align: center;
-  padding: 12px 8px;
-  border: 2px solid white;
-  font-size: 11px;
-}
-.kpi-table .kpi-label { font-size: 10px; }
-.kpi-table .kpi-value { font-size: 16px; font-weight: bold; }
-.kpi-table .kpi-unit { font-size: 9px; }
-.chart-img {
-  max-width: 100%;
-  margin: 10px 0;
-  text-align: center;
-}
-.chart-img img { max-width: 500px; }
-table.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 12px 0;
-  font-size: 11px;
-}
-table.data-table th {
-  background-color: {{ style_profile.primary_color }};
-  color: white;
-  padding: 6px 8px;
-  text-align: left;
-}
-table.data-table td {
-  padding: 4px 8px;
-  border-bottom: 1px solid #dddddd;
-}
-.content-block { margin: 8px 0; }
-.footer {
-  margin-top: 30px;
-  padding-top: 10px;
-  border-top: 1px solid #dddddd;
-  color: #888888;
-  font-size: 10px;
-  text-align: center;
-}
-</style>
-</head>
-<body>
-<h1>{{ title }}</h1>
-<div class="meta">数据来源: {{ data_source }} | 生成日期: {{ created }} | 风格: {{ style }}</div>
-
-{% for section in sections %}
-<h2>{{ loop.index }}. {{ section.title }}</h2>
-
-{% if section.content_type == "text" %}
-<div class="content-block">{{ section.content | replace('\\n', '<br>') }}</div>
-
-{% elif section.content_type == "summary" %}
-<div class="content-block">{{ section.content | replace('\\n', '<br>') }}</div>
-
-{% elif section.content_type == "kpi" %}
-<table class="kpi-table">
-<tr>
-{% for kpi in section.kpis %}
-<td>
-  <div class="kpi-label">{{ kpi.label }}</div>
-  <div class="kpi-value">{{ kpi.value }}</div>
-  <div class="kpi-unit">{{ kpi.unit }}</div>
-</td>
-{% endfor %}
-</tr>
-</table>
-
-{% elif section.content_type == "chart" %}
-{% if section.chart_path %}
-<div class="chart-img">
-  <img src="{{ section.chart_path }}" alt="{{ section.title }}">
-</div>
-{% endif %}
-<div class="content-block">{{ section.content }}</div>
-
-{% elif section.content_type == "table" %}
-{% if section.table_data %}
-<table class="data-table">
-<thead><tr>{% for h in section.table_data.headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
-<tbody>
-{% for row in section.table_data.rows %}
-<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
-{% endfor %}
-</tbody>
-</table>
-{% endif %}
-
-{% endif %}
-{% endfor %}
-
-<div class="footer">本报告由 data-report-creator 自动生成</div>
-</body>
-</html>
-"""
-
-
 def export_markdown(composed: dict, output_path: Path) -> Path:
     template = Template(MARKDOWN_TEMPLATE)
     content = template.render(**composed)
@@ -371,56 +235,243 @@ def export_html(composed: dict, output_path: Path) -> Path:
     return output_path
 
 
-def _export_pdf_html(composed: dict, output_path: Path) -> Path:
-    """Generate simplified HTML optimized for PDF rendering."""
-    template = Template(PDF_HTML_TEMPLATE)
-    content = template.render(**composed)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(content, encoding="utf-8")
+def _find_chinese_font() -> str:
+    """Find a Chinese font path on the current system."""
+    system = platform.system()
+    candidates = []
+
+    if system == "Windows":
+        candidates = [
+            "C:/Windows/Fonts/msyh.ttc",
+            "C:/Windows/Fonts/simhei.ttf",
+            "C:/Windows/Fonts/simsun.ttc",
+        ]
+    elif system == "Darwin":
+        candidates = [
+            "/System/Library/Fonts/PingFang.ttc",
+            "/System/Library/Fonts/STHeiti Light.ttc",
+            "/Library/Fonts/Arial Unicode.ttf",
+        ]
+    else:
+        candidates = [
+            "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+            "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        ]
+
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+
+    return ""
+
+
+def export_pdf_reportlab(composed: dict, output_path: Path) -> Path:
+    """Export PDF using reportlab — direct rendering, no HTML intermediate."""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm, cm
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle,
+        PageBreak,
+    )
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    # Register Chinese font
+    font_path = _find_chinese_font()
+    font_name = "ChineseFont"
+    if font_path:
+        try:
+            pdfmetrics.registerFont(TTFont(font_name, font_path))
+        except Exception:
+            font_name = "Helvetica"
+    else:
+        font_name = "Helvetica"
+
+    style_profile = composed.get("style_profile", {})
+    primary_color = colors.HexColor(style_profile.get("primary_color", "#1a3a6b"))
+    accent_color = colors.HexColor(style_profile.get("accent_color", "#e8a838"))
+    text_color = colors.HexColor(style_profile.get("text_color", "#333333"))
+
+    # Styles
+    styles = getSampleStyleSheet()
+    h1_style = ParagraphStyle(
+        "ChineseH1", parent=styles["Heading1"],
+        fontName=font_name, fontSize=20, textColor=primary_color,
+        spaceAfter=6, spaceBefore=0,
+    )
+    h2_style = ParagraphStyle(
+        "ChineseH2", parent=styles["Heading2"],
+        fontName=font_name, fontSize=14, textColor=primary_color,
+        spaceAfter=8, spaceBefore=20,
+        leftIndent=10, borderColor=accent_color, borderWidth=0,
+        borderPadding=0,
+    )
+    body_style = ParagraphStyle(
+        "ChineseBody", parent=styles["BodyText"],
+        fontName=font_name, fontSize=10, textColor=text_color,
+        leading=16, spaceAfter=6,
+    )
+    meta_style = ParagraphStyle(
+        "Meta", parent=body_style,
+        fontSize=9, textColor=colors.HexColor(style_profile.get("secondary_color", "#2d5a9e")),
+    )
+    kpi_label_style = ParagraphStyle(
+        "KpiLabel", fontName=font_name, fontSize=8, textColor=colors.white,
+        alignment=1, leading=10,
+    )
+    kpi_value_style = ParagraphStyle(
+        "KpiValue", fontName=font_name, fontSize=14, textColor=colors.white,
+        alignment=1, leading=18,
+    )
+    footer_style = ParagraphStyle(
+        "Footer", fontName=font_name, fontSize=8, textColor=colors.grey,
+        alignment=1, spaceBefore=20,
+    )
+
+    doc = SimpleDocTemplate(
+        str(output_path), pagesize=A4,
+        leftMargin=2 * cm, rightMargin=2 * cm,
+        topMargin=2 * cm, bottomMargin=2 * cm,
+    )
+
+    story = []
+
+    # Title
+    story.append(Paragraph(composed.get("title", "Report"), h1_style))
+    meta_text = f"数据来源: {composed.get('data_source', '')} | 生成日期: {composed.get('created', '')} | 风格: {composed.get('style', '')}"
+    story.append(Paragraph(meta_text, meta_style))
+    story.append(Spacer(1, 10 * mm))
+
+    work_dir = output_path.parent
+
+    for section in composed.get("sections", []):
+        ct = section.get("content_type", "text")
+
+        # Section title
+        story.append(Paragraph(section.get("title", ""), h2_style))
+
+        if ct == "text" or ct == "summary":
+            content = section.get("content", "").replace("\n", "<br/>")
+            if content:
+                story.append(Paragraph(content, body_style))
+
+        elif ct == "kpi":
+            kpis = section.get("kpis", [])
+            if kpis:
+                # Build KPI table: each KPI is a column
+                kpi_data = [[]]
+                for kpi in kpis:
+                    cell = [
+                        Paragraph(kpi.get("label", ""), kpi_label_style),
+                        Paragraph(str(kpi.get("value", "")), kpi_value_style),
+                        Paragraph(kpi.get("unit", ""), kpi_label_style),
+                    ]
+                    kpi_data[0].append(cell)
+
+                col_width = (A4[0] - 4 * cm) / max(len(kpis), 1)
+                kpi_table = Table(kpi_data, colWidths=[col_width] * len(kpis))
+                kpi_table.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, -1), primary_color),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ]))
+                story.append(kpi_table)
+                story.append(Spacer(1, 4 * mm))
+
+        elif ct == "chart":
+            chart_path = section.get("chart_path")
+            if chart_path:
+                full_path = work_dir / chart_path
+                if full_path.exists():
+                    try:
+                        img = Image(str(full_path))
+                        img._restrictSize(16 * cm, 10 * cm)
+                        story.append(img)
+                    except Exception:
+                        pass
+            content = section.get("content", "")
+            if content:
+                story.append(Paragraph(content, body_style))
+
+        elif ct == "table":
+            table_data = section.get("table_data", {})
+            headers = table_data.get("headers", [])
+            rows = table_data.get("rows", [])
+            if headers and rows:
+                # Build table data with Paragraphs for Chinese support
+                table_content = [[Paragraph(str(h), ParagraphStyle(
+                    "TH", fontName=font_name, fontSize=9, textColor=colors.white,
+                    leading=12
+                )) for h in headers]]
+                for row in rows:
+                    table_content.append([Paragraph(str(c), ParagraphStyle(
+                        "TD", fontName=font_name, fontSize=8, textColor=text_color,
+                        leading=11
+                    )) for c in row])
+
+                col_count = len(headers)
+                col_width = (A4[0] - 4 * cm) / col_count
+                tbl = Table(table_content, colWidths=[col_width] * col_count)
+                tbl.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), primary_color),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f5f5")]),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e0e0e0")),
+                ]))
+                story.append(tbl)
+
+        story.append(Spacer(1, 4 * mm))
+
+    # Footer
+    story.append(Spacer(1, 10 * mm))
+    story.append(Paragraph("本报告由 data-report-creator 自动生成", footer_style))
+
+    doc.build(story)
     return output_path
 
 
 def export_pdf(composed: dict, output_path: Path) -> Path:
-    work_dir = output_path.parent
+    """Export PDF — tries reportlab first (pure Python, no external deps),
+    then WeasyPrint (higher quality, needs GTK3 on Windows)."""
 
-    # Try WeasyPrint first (best quality, uses standard HTML template)
+    # Primary: reportlab (pure Python, reliable, no external deps)
+    try:
+        return export_pdf_reportlab(composed, output_path)
+    except ImportError:
+        pass
+    except Exception as exc:
+        print(f"[WARN] reportlab PDF export failed: {exc}")
+
+    # Fallback: WeasyPrint (higher quality HTML→PDF, needs system libs)
     try:
         from weasyprint import HTML
         html_path = output_path.with_suffix(".html")
         export_html(composed, html_path)
         HTML(str(html_path)).write_pdf(str(output_path))
+        print("[INFO] PDF exported via WeasyPrint")
         return output_path
     except ImportError:
         pass
     except Exception as exc:
         print(f"[WARN] WeasyPrint PDF export failed: {exc}")
 
-    # Fallback: xhtml2pdf (uses simplified PDF-optimized HTML template)
-    try:
-        from xhtml2pdf import pisa
-        pdf_html_path = work_dir / "_report_pdf.html"
-        _export_pdf_html(composed, pdf_html_path)
-        html_content = pdf_html_path.read_text(encoding="utf-8")
-        with open(output_path, "wb") as f:
-            pisa_status = pisa.CreatePDF(html_content, dest=f)
-        if pisa_status.err:
-            print(f"[WARN] xhtml2pdf reported {pisa_status.err} errors")
-        # Clean up temp file
-        try:
-            pdf_html_path.unlink()
-        except Exception:
-            pass
-        print("[INFO] PDF exported via xhtml2pdf (fallback)")
-        return output_path
-    except ImportError:
-        print("[WARN] PDF export requires weasyprint or xhtml2pdf:")
-        print("       pip install weasyprint   (best quality, needs GTK3 on Windows)")
-        print("       pip install xhtml2pdf    (pure Python, no extra deps)")
-        return output_path.with_suffix(".html")
-    except Exception as exc:
-        print(f"[WARN] xhtml2pdf PDF export failed: {exc}")
-        print("[INFO] Try: pip install weasyprint (needs GTK3) or pip install xhtml2pdf")
-        return output_path.with_suffix(".html")
+    print("[WARN] PDF export requires reportlab or weasyprint:")
+    print("       pip install reportlab    (recommended, pure Python)")
+    print("       pip install weasyprint   (higher quality, needs GTK3)")
+    return output_path.with_suffix(".html")
 
 
 EXPORTERS = {

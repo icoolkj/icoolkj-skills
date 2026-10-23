@@ -25,7 +25,7 @@ python scripts/compliance.py ../../work/my-report/report.json
 python scripts/run_pipeline.py ../../work/my-report/report.json --work-dir ../../work/my-report
 
 # 5. 导出 PDF（需先安装 PDF 库）
-pip install xhtml2pdf
+pip install reportlab
 python scripts/run_pipeline.py ../../work/my-report/report.json --work-dir ../../work/my-report --formats markdown html pdf
 ```
 
@@ -71,7 +71,7 @@ python scripts/run_pipeline.py ../../work/my-report/report.json --work-dir ../..
 - **【强制】合规检查**：报告必须通过合规检查才能进入生成流程。检查内容包括数据质量、结构完整性、敏感词、URL链接等。
 - **数据格式**：支持 CSV、Excel（.xlsx/.xls）、JSON、JSONL。
 - **图表类型**：bar、line、pie、scatter、histogram、area、table。
-- **输出格式**：Markdown（默认）、HTML（默认）、PDF（需 weasyprint）。
+- **输出格式**：Markdown（默认）、HTML（默认）、PDF（需 reportlab）。
 - **配置驱动**：report.json 是唯一配置入口，所有脚本围绕它工作。
 
 ## report.json 核心字段
@@ -201,6 +201,6 @@ LLM 生成失败时不会中断流程，`[填写]` 占位符保留，可手动�
 ## 运行时依赖
 
 - Python 3.10+、pandas、openpyxl、matplotlib、Jinja2
-- 可选：xhtml2pdf（PDF 导出，纯 Python 无需 GTK3，推荐 Windows 用户）
+- 可选：reportlab（PDF 导出，纯 Python 无外部依赖，推荐）
 - 可选：WeasyPrint（PDF 导出，更高质量，Linux/Mac 推荐，Windows 需 GTK3）
 - 可选：requests（LLM 自动生成内容，支持 OpenAI 兼容 API）

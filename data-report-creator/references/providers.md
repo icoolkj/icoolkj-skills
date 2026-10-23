@@ -47,22 +47,22 @@
 
 ### PDF（可选）
 
-支持两种 PDF 导出引擎，自动选择：优先 WeasyPrint（更高质量），失败时回退 xhtml2pdf（纯 Python）。
+支持两种 PDF 导出引擎，自动选择：优先 reportlab（纯 Python，无外部依赖），失败时回退 WeasyPrint（更高质量，需 GTK3）。
 
 | 引擎 | 质量 | 依赖 | Windows 兼容 | 推荐场景 |
 |------|------|------|-------------|---------|
-| WeasyPrint | 高 | 需 GTK3 系统库 | 需安装 GTK3 Runtime | Linux/Mac |
-| xhtml2pdf | 中 | 纯 Python，无外部依赖 | 直接可用 | Windows / 快速安装 |
+| reportlab | 高 | 纯 Python，无外部依赖 | 直接可用 | 所有平台（推荐） |
+| WeasyPrint | 高 | 需 GTK3 系统库 | 需安装 GTK3 Runtime | Linux/Mac（HTML→PDF） |
 
 安装：
 ```bash
-# 推荐 Windows 用户（纯 Python，无需 GTK3）
-pip install xhtml2pdf
+# 推荐（纯 Python，无外部依赖，跨平台）
+pip install reportlab
 
-# Linux/Mac 用户（更高质量）
+# 可选（更高质量 HTML→PDF，需 GTK3）
 pip install weasyprint
 
-# 两者都安装时自动优先使用 WeasyPrint
+# 两者都安装时自动优先使用 reportlab
 ```
 
 #### PDF 导出示例
@@ -100,7 +100,7 @@ python scripts/run_pipeline.py report.json --work-dir ./output --formats pdf
 # 输出: report.pdf
 ```
 
-#### WeasyPrint 安装注意事项
+#### WeasyPrint 安装注意事项（可选）
 
 | 系统 | 安装命令 | 备注 |
 |------|---------|------|
@@ -123,8 +123,8 @@ python scripts/run_pipeline.py report.json --work-dir ./output --formats pdf
 
 | 包 | 用途 | 安装 |
 |----|------|------|
-| weasyprint | PDF 导出（高质量） | `pip install weasyprint` |
-| xhtml2pdf | PDF 导出（纯 Python，Windows 推荐） | `pip install xhtml2pdf` |
+| reportlab | PDF 导出（纯 Python，推荐） | `pip install reportlab` |
+| weasyprint | PDF 导出（高质量 HTML→PDF） | `pip install weasyprint` |
 
 ### 跨平台注意事项
 
