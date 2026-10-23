@@ -37,6 +37,7 @@
 - 包含 URL：将链接移至 data_source 字段
 - 包含绝对化用语：替换"最佳"→"优秀"、"第一"→"前列"等
 - 章节缺少必填字段：补全 id、title、content_type、style
+- 残留 `[填写]` 占位符：由 Agent 撰写基于统计结果的正式文字替换
 
 ## PDF 导出失败
 
@@ -74,9 +75,6 @@ python scripts/run_pipeline.py report.json --work-dir ./output
 
 # 指定输出格式
 python scripts/run_pipeline.py report.json --work-dir ./output --formats markdown html pdf
-
-# 启用 LLM 自动补写
-python scripts/run_pipeline.py report.json --work-dir ./output --llm --api-key "sk-..."
 
 # 强制重新生成图表
 python scripts/run_pipeline.py report.json --work-dir ./output --force-charts

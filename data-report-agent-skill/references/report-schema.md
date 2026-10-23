@@ -15,7 +15,6 @@ report.json 是报告项目的唯一配置入口，由 Agent 生成，本地 Pyt
 | `output_formats` | string[] | | 输出格式，默认 ["markdown", "html"]，可选 "pdf" |
 | `sections` | object[] | ✓ | 章节列表（至少 1 个） |
 | `data_profile` | object | | 数据画像（planner 自动填充，Agent 可不填） |
-| `llm_config` | object | | LLM 配置（可选） |
 
 ## sections 章节字段
 
@@ -25,7 +24,7 @@ report.json 是报告项目的唯一配置入口，由 Agent 生成，本地 Pyt
 | `title` | string | ✓ | 节标题（显示在报告中） |
 | `content_type` | string | ✓ | text / summary / chart / table / kpi / image |
 | `style` | string | ✓ | **用户选定的**风格 ID（与顶层 style 一致） |
-| `content` | string | ✓ | 文字内容（`[填写]` 表示待 AI 补写） |
+| `content` | string | ✓ | 文字内容，由 Agent 基于统计结果撰写（最终配置中不得残留 `[填写]` 占位符） |
 | `chart_config` | object | | 图表配置（content_type=chart 时必填） |
 | `table_config` | object | | 表格配置（content_type=table 时） |
 | `kpi_config` | object[] | | KPI 配置（content_type=kpi 时） |
@@ -76,30 +75,6 @@ report.json 是报告项目的唯一配置入口，由 Agent 生成，本地 Pyt
   {"label": "同比增长", "value": "23.5%", "unit": ""}
 ]
 ```
-
-## llm_config 格式（可选）
-
-```json
-"llm_config": {
-  "enabled": true,
-  "api_key": "",
-  "base_url": "https://api.deepseek.com/v1",
-  "model": "deepseek-flash",
-  "generate_conclusions": true,
-  "generate_descriptions": false,
-  "generate_summary": false
-}
-```
-
-| 字段 | 类型 | 默认 | 说明 |
-|------|------|------|------|
-| `enabled` | bool | false | 是否启用 LLM 生成 |
-| `api_key` | string | | API Key（优先用环境变量 `LLM_API_KEY`） |
-| `base_url` | string | `https://api.deepseek.com/v1` | API 地址 |
-| `model` | string | `deepseek-flash` | 模型名称 |
-| `generate_conclusions` | bool | true | 自动生成结论与建议 |
-| `generate_descriptions` | bool | false | 自动生成各章节分析描述 |
-| `generate_summary` | bool | false | 自动生成报告封面摘要 |
 
 ## 常见 section id 命名规则
 

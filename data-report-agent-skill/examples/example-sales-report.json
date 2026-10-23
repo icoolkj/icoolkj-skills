@@ -143,7 +143,7 @@
       "id": "conclusion",
       "title": "结论与建议",
       "content_type": "text",
-      "content": "[填写] 基于以上数据分析的结论和建议",
+      "content": "2025年销售整体呈稳步上升趋势，季节性特征明显：2月为全年低点，此后逐月走高，四季度（10—12月）合计约693万元，约占全年销售额的三分之一，为全年高峰。品类上电子产品贡献最大（约680万元），区域上华东区域领先（约520万元）。建议：提前为四季度旺季备货并预留营销资源；巩固电子产品品类与华东区域的既有优势；复盘2月低谷成因，改善淡季表现。",
       "style": "vibrant"
     }
   ],
@@ -154,13 +154,5 @@
     "completeness": 0.998,
     "numeric_columns": ["销售额", "订单数", "客单价"],
     "categorical_columns": ["月份", "产品类别", "区域"]
-  },
-  "llm_config": {
-    "enabled": true,
-    "base_url": "https://api.deepseek.com/v1",
-    "model": "deepseek-flash",
-    "generate_conclusions": true,
-    "generate_descriptions": false,
-    "generate_summary": false
   }
 }

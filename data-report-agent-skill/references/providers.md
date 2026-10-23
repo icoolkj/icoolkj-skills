@@ -136,4 +136,3 @@ pip install weasyprint    # 可选，高质量 HTML→PDF
 | 包 | 用途 |
 |----|------|
 | reportlab | PDF 导出（推荐） |
-| requests | LLM 自动生成内容 |

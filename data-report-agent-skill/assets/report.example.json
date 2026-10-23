@@ -26,7 +26,7 @@
       "id": "conclusion",
       "title": "结论与建议",
       "content_type": "text",
-      "content": "[填写] 基于以上数据分析的结论和建议",
+      "content": "结论与建议正文由 Agent 基于统计结果撰写（此处为示例文字，使用模板时替换为实际分析结论）。",
       "style": "corporate"
     }
   ]

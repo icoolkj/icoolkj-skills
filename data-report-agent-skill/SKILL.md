@@ -1,6 +1,6 @@
 ---
 name: data-report-agent-skill
-version: 1.1.0
+version: 1.2.0
 description: "模型编排驱动的数据分析报告 Skill。用户用自然语言描述分析目标，Agent 负责澄清需求、调用本地脚本获取数据画像、设计章节与图表、生成或修复 report.json，并执行合规检查和报告流水线；Python 脚本负责确定性的数据计算、图表渲染及 Markdown/HTML/PDF 导出。适用于 AI 主导、交互式或需要根据业务目标定制分析结构的 CSV/Excel/JSON 报告；不用于以手工编辑配置和直接 CLI 控制为主的流程。"
 ---
 
@@ -8,15 +8,16 @@ description: "模型编排驱动的数据分析报告 Skill。用户用自然语
 
 用户说自然语言 → Agent 理解并编排分析 → 本地 Python 脚本完成确定性计算 → Agent 校验并交付报告。
 
-**核心理念**：Agent（对话大模型）负责需求理解、交互引导、分析规划、配置生成、工具调用和错误修复；本地 Python 脚本负责数据解析、统计计算、图表渲染和文件导出。Agent 不凭空推测数据结论，也不在上下文中手工处理完整的大数据集，而是通过脚本获得可验证的结果。
+**核心理念**：Agent（对话大模型）负责需求理解、交互引导、分析规划、正文撰写、配置生成、工具调用和错误修复；本地 Python 脚本负责数据解析、统计计算、图表渲染和文件导出。Agent 不凭空推测数据结论，也不在上下文中手工处理完整的大数据集，而是通过脚本获得可验证的结果。报告文字全部由 Agent 撰写，流水线不再调用外部 LLM API。
 
 ## 职责边界
 
 1. **Agent 负责决策与编排**：根据用户目标选择快速或自定义模式，设计章节和图表，生成、修改并验证 `report.json`。
-2. **脚本负责确定性计算**：数据读取、求和、均值、分组聚合等由 `data_loader.py` 和 `planner.py` 完成，Agent 使用脚本输出的数据画像和统计结果，不手工猜测。
-3. **脚本负责文件生成**：PNG 图表和 PDF/HTML/Markdown 由本地 Python 生成，Agent 可以调用脚本并检查输出，但不在对话中伪造二进制产物。
-4. **控制上下文数据量**：对于大型数据文件，Agent 不把全部明细加载到对话上下文，只读取完成规划所需的数据画像、字段信息、聚合结果和少量样本。
-5. **必须闭环验证**：环境允许执行本地命令时，Agent 应运行合规检查和报告流水线，并根据错误修复配置；只有环境无法执行或用户明确要求仅生成配置时，才将命令交给用户执行。
+2. **Agent 负责撰写全部正文**：封面摘要、章节解读、结论与建议由 Agent 直接撰写，不调用外部 LLM API。文字必须基于脚本计算的统计结果，交付的 report.json 中不得残留 `[填写]` 占位符（compliance.py 会拦截）。
+3. **脚本负责确定性计算**：数据读取、求和、均值、分组聚合等由 `data_loader.py` 和 `planner.py` 完成，Agent 使用脚本输出的数据画像和统计结果，不手工猜测。
+4. **脚本负责文件生成**：PNG 图表和 PDF/HTML/Markdown 由本地 Python 生成，Agent 可以调用脚本并检查输出，但不在对话中伪造二进制产物。
+5. **控制上下文数据量**：对于大型数据文件，Agent 不把全部明细加载到对话上下文，只读取完成规划所需的数据画像、字段信息、聚合结果和少量样本。
+6. **必须闭环验证**：环境允许执行本地命令时，Agent 应运行合规检查和报告流水线，并根据错误修复配置；只有环境无法执行或用户明确要求仅生成配置时，才将命令交给用户执行。
 
 ## 6 阶段工作流
 
@@ -33,7 +34,6 @@ description: "模型编排驱动的数据分析报告 Skill。用户用自然语
 | 报告标题 | 报告的标题 | ✓（可从数据文件名推断） |
 | 报告风格 | 10 种风格之一，必须让用户选择 | ✓ |
 | 输出格式 | markdown / html / pdf（可多选） | 默认 markdown+html |
-| AI 文字生成 | 是否开启 LLM 自动补写摘要/解读/结论 | 默认关闭 |
 | 自定义章节 | 用户指定增删图表、指定图表类型 | 可选 |
 
 **风格选择交互**：必须向用户展示 10 种风格列表，让用户明确选择。不得自动分配。
@@ -55,7 +55,7 @@ description: "模型编排驱动的数据分析报告 Skill。用户用自然语
 - 调用 `planner.py` 生成默认全套章节（KPI、交叉分析、分布、相关性、数据表、结论）
 - Agent 在此基础上可微调（如修改标题、增删章节）
 
-**模式 B：自定义模式（LLM 手动编排）**
+**模式 B：自定义模式（Agent 手动编排）**
 - 用户用自然语言描述想看什么分析维度
 - Agent 根据用户需求手动组装 sections、chart_config、kpi_config
 - 适合有明确分析目标的场景
@@ -82,6 +82,7 @@ Agent 在输出 report.json 前做对话层预检查：
 - 禁止绝对化敏感词：最佳、最强、第一、顶级、100%、百分百、绝对、确保盈利、零风险、无风险、稳赚
 - URL 链接不允许放在正文 content 字段，放到 data_source 或单独的 references
 - 数据完整度过低（<50%）时告警提醒用户
+- 正文不得残留 `[填写]` 占位符，Agent 撰写的文字必须完整（compliance.py 会拦截）
 
 有问题立刻修正，不往下流转。
 
@@ -102,17 +103,16 @@ Agent 生成完整的 **report.json** 文件。环境允许写入工作区时，
 
 可选参数：
    --formats markdown html pdf    # 指定输出格式
-   --llm                          # 启用 AI 自动补写文字
-   --api-key "sk-..."             # LLM API Key
-   --model "deepseek-flash"       # LLM 模型
 
 输出文件：
    report.md / report.html / report.pdf + charts/ 图表目录
 ```
 
-**占位符处理**：
-- 未开启 AI 文字生成时，结论与建议章节的 content 写 `[填写] 基于以上数据分析的结论和建议`
-- 开启 AI 文字生成时，content 仍写 `[填写]`，本地 llm_writer.py 会自动替换
+**正文撰写**：
+- 报告全部正文（封面摘要、章节解读、结论与建议）由 Agent 直接撰写，不依赖外部 LLM API，也不预留 `[填写]` 占位符
+- 文字必须基于脚本输出的统计结果（数据画像、分组聚合、分布指标），不得编造数据中没有的结论
+- Agent 写好的文字同样受合规规则约束：不含绝对化用语、正文不含 URL
+- 快速模式下 planner.py 生成的结论章节带有 `[填写]` 骨架，Agent 必须替换为正式文字后再交付；最终配置中残留 `[填写]` 会被 compliance.py 拦截
 
 ### Phase 4：执行本地流水线
 
@@ -121,10 +121,9 @@ Agent 生成完整的 **report.json** 文件。环境允许写入工作区时，
 ```
 report.json → compliance.py合规校验 → data_loader.py数据加载
 → charts.py图表渲染 → composer.py报告组装 → exporter.py导出md/html/pdf
-→ (可选) llm_writer.py AI文字补写
 ```
 
-本地执行链路完全继承 data-report-creator 项目，脚本位于 `scripts/` 目录。
+本地执行链路继承自 data-report-creator 项目，脚本位于 `scripts/` 目录。差异：本 Skill 不包含 llm_writer.py，报告正文由 Agent 在流水线运行前撰写完毕，流水线内不再有任何 LLM 调用。
 
 ### Phase 5：错误修复闭环
 
@@ -134,12 +133,13 @@ Agent 读取本地执行错误并修改 `report.json` 后重试。若流水线�
 - 图表 type 错误 → Agent 修正 chart_config
 - 缺少必填字段 → Agent 补全字段
 - 数据路径错误 → Agent 修正 data_source
+- 残留 `[填写]` 占位符 → Agent 撰写正式文字替换
 
 常见报错修复指引见 [references/error-repair-guide.md](references/error-repair-guide.md)。
 
 ## report.json 核心字段
 
-**顶层**：`title`, `data_source`, `data_format`, `style`, `output_formats`, `sections[]`, `data_profile`, `llm_config`
+**顶层**：`title`, `data_source`, `data_format`, `style`, `output_formats`, `sections[]`, `data_profile`
 
 **每节**：
 | 字段 | 必填 | 说明 |
@@ -148,7 +148,7 @@ Agent 读取本地执行错误并修改 `report.json` 后重试。若流水线�
 | `title` | ✓ | 节标题 |
 | `content_type` | ✓ | text / summary / chart / table / kpi / image |
 | `style` | ✓ | 用户选定的风格 ID |
-| `content` | ✓ | 文字内容（`[填写]` 表示待 AI 补写） |
+| `content` | ✓ | 文字内容，由 Agent 撰写（不得残留 `[填写]` 占位符） |
 | `chart_config` | | 图表配置（content_type=chart 时必填） |
 | `table_config` | | 表格配置（content_type=table 时） |
 | `kpi_config` | | KPI 配置（content_type=kpi 时） |
@@ -182,30 +182,6 @@ Agent 读取本地执行错误并修改 `report.json` 后重试。若流水线�
 
 完整图表/导出说明见 [references/providers.md](references/providers.md)。
 
-## LLM 自动生成（可选）
-
-启用后，报告中的 `[填写]` 占位符会自动替换为 AI 生成的专业内容。采用 OpenAI 兼容 API 协议。
-
-| 提供商 | `--base-url` | `--model` 示例 |
-|--------|-------------|---------------|
-| DeepSeek（默认） | `https://api.deepseek.com/v1` | `deepseek-flash` |
-| OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
-| Moonshot | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` |
-| 智谱 | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` |
-
-使用方式：
-```bash
-# 环境变量
-export LLM_API_KEY="sk-..."
-python scripts/run_pipeline.py report.json --work-dir ./output --llm
-
-# 命令行参数
-python scripts/run_pipeline.py report.json --work-dir ./output \
-  --llm --api-key "sk-..." --model "deepseek-flash"
-```
-
-LLM 生成失败时不中断流程，`[填写]` 占位符保留。
-
 ## 脚本清单
 
 | 脚本 | 用途 |
@@ -218,7 +194,6 @@ LLM 生成失败时不中断流程，`[填写]` 占位符保留。
 | `scripts/composer.py` | 报告组装（内容+图表+KPI+表格） |
 | `scripts/exporter.py` | 导出 Markdown/HTML/PDF |
 | `scripts/run_pipeline.py` | 一键流水线 |
-| `scripts/llm_writer.py` | LLM 自动生成结论与建议 |
 
 ## 参考文档
 
@@ -237,4 +212,3 @@ LLM 生成失败时不中断流程，`[填写]` 占位符保留。
 
 - Python 3.10+、pandas、openpyxl、matplotlib、Jinja2
 - 可选：reportlab（PDF 导出，纯 Python，推荐）
-- 可选：requests（LLM 自动生成内容）

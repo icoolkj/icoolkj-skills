@@ -19,6 +19,8 @@ BLOCKED_WORDS = (
 
 URL_PATTERN = re.compile(r"https?://\S+|www\.\S+", re.I)
 
+PLACEHOLDER_MARK = "[填写]"
+
 REQUIRED_SECTION_FIELDS = ("id", "title", "content_type", "style")
 
 
@@ -39,6 +41,8 @@ def check_text_content(text: str) -> list[str]:
     issues = []
     if URL_PATTERN.search(text or ""):
         issues.append("正文包含URL链接，请移至 references 字段")
+    if PLACEHOLDER_MARK in (text or ""):
+        issues.append("正文包含未替换的占位符 [填写]，请由 Agent 撰写正式内容后重新提交")
     for word in BLOCKED_WORDS:
         if word.lower() in (text or "").lower():
             issues.append(f"包含敏感/绝对化用语: {word}")
