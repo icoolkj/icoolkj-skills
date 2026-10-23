@@ -1,5 +1,6 @@
 ---
 name: data-report-agent-skill
+version: 1.0.0
 description: "数据分析报告 Agent Skill：用户用自然语言描述数据分析需求，Agent 交互式生成合规 report.json 配置，本地 Python 脚本完成数据加载、图表渲染、导出。支持 10 种视觉风格、6 种图表类型、KPI 卡片、Markdown/HTML/PDF 导出、LLM 自动补写。Use for 数据分析报告, 数据报告, 自动报告, CSV分析, Excel分析, JSON分析, 数据可视化, 报告生成, AI数据分析."
 ---
 

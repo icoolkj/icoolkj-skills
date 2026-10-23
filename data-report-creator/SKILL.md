@@ -1,5 +1,6 @@
 ---
 name: data-report-creator
+version: 1.1.0
 description: "Create professional data analysis reports from CSV/Excel/JSON data with mandatory user style selection: compliance-checked content, matplotlib charts (bar/line/pie/scatter/histogram/area), 10 visual styles, KPI cards, data tables, and Markdown/HTML/PDF export. Use for 数据分析报告, 数据报告, 自动报告, CSV分析, Excel分析, JSON分析, 数据可视化, 报告生成."
 ---
 
