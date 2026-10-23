@@ -242,8 +242,37 @@ def export_markdown(composed: dict, output_path: Path) -> Path:
 
 
 def export_html(composed: dict, output_path: Path) -> Path:
+    """Export HTML with base64-embedded images for self-contained output."""
+    import base64
+    import copy
+
+    composed_copy = copy.deepcopy(composed)
+    sections = composed_copy.get("sections", [])
+    work_dir = output_path.parent
+
+    for section in sections:
+        chart_path = section.get("chart_path")
+        if chart_path:
+            full_path = work_dir / chart_path
+            if full_path.exists():
+                with open(full_path, "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode("ascii")
+                section["chart_path"] = f"data:image/png;base64,{b64}"
+            else:
+                section["chart_path"] = ""
+
+        table_path = section.get("table_path")
+        if table_path:
+            full_path = work_dir / table_path
+            if full_path.exists():
+                with open(full_path, "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode("ascii")
+                section["table_path"] = f"data:image/png;base64,{b64}"
+            else:
+                section["table_path"] = ""
+
     template = Template(HTML_TEMPLATE)
-    content = template.render(**composed)
+    content = template.render(**composed_copy)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(content, encoding="utf-8")
     return output_path
@@ -411,11 +440,19 @@ def export_pdf_reportlab(composed: dict, output_path: Path) -> Path:
                 full_path = work_dir / chart_path
                 if full_path.exists():
                     try:
-                        img = Image(str(full_path))
-                        img._restrictSize(16 * cm, 10 * cm)
+                        from PIL import Image as PILImage
+                        import tempfile
+                        pil_img = PILImage.open(str(full_path))
+                        if pil_img.mode in ("RGBA", "P"):
+                            pil_img = pil_img.convert("RGB")
+                            tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+                            pil_img.save(tmp.name)
+                            img = Image(tmp.name, width=16 * cm, height=10 * cm, kind="proportional")
+                        else:
+                            img = Image(str(full_path), width=16 * cm, height=10 * cm, kind="proportional")
                         story.append(img)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        print(f"[WARN] Chart image embed failed for {section_id}: {exc}")
             content = section.get("content", "")
             if content:
                 story.append(Paragraph(content, body_style))
