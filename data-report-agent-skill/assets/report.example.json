@@ -1,0 +1,33 @@
+{
+  "title": "数据分析报告",
+  "data_source": "data/sample.csv",
+  "style": "corporate",
+  "output_formats": ["markdown", "html"],
+  "sections": [
+    {
+      "id": "cover",
+      "title": "数据分析报告",
+      "content_type": "text",
+      "content": "本报告基于数据自动生成。",
+      "style": "corporate"
+    },
+    {
+      "id": "kpi_overview",
+      "title": "关键指标",
+      "content_type": "kpi",
+      "content": "核心数据指标",
+      "style": "corporate",
+      "kpi_config": [
+        {"label": "总行数", "value": "1000", "unit": "行"},
+        {"label": "完整度", "value": "98.5", "unit": "%"}
+      ]
+    },
+    {
+      "id": "conclusion",
+      "title": "结论与建议",
+      "content_type": "text",
+      "content": "[填写] 基于以上数据分析的结论和建议",
+      "style": "corporate"
+    }
+  ]
+}

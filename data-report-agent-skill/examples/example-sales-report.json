@@ -1,0 +1,166 @@
+{
+  "title": "2025年度销售数据分析报告",
+  "topic": "销售数据",
+  "created": "2025-12-01",
+  "data_source": "data/sales_2025.csv",
+  "data_format": "csv",
+  "style": "vibrant",
+  "output_formats": ["markdown", "html", "pdf"],
+  "sections": [
+    {
+      "id": "cover",
+      "title": "2025年度销售数据分析报告",
+      "content_type": "text",
+      "content": "本报告基于2025年度销售数据自动生成，涵盖月度趋势、产品分布和区域对比分析。",
+      "style": "vibrant"
+    },
+    {
+      "id": "kpi_overview",
+      "title": "关键指标",
+      "content_type": "kpi",
+      "content": "核心数据指标概览",
+      "style": "vibrant",
+      "kpi_config": [
+        {"label": "总销售额", "value": "1,850", "unit": "万元"},
+        {"label": "订单数", "value": "3,420", "unit": "笔"},
+        {"label": "客单价", "value": "5,409", "unit": "元"},
+        {"label": "同比增长", "value": "23.5", "unit": "%"}
+      ]
+    },
+    {
+      "id": "data_overview",
+      "title": "数据概览",
+      "content_type": "summary",
+      "content": "数据来源: data/sales_2025.csv\n格式: csv\n行数: 3420\n列数: 8\n缺失值: 45 个单元格\n完整度: 99.8%\n数值列: 销售额, 订单数, 客单价\n分类列: 月份, 产品类别, 区域",
+      "style": "vibrant"
+    },
+    {
+      "id": "cross_月份",
+      "title": "月份 × 销售额 分析",
+      "content_type": "chart",
+      "content": "按月份分组的销售额汇总分析，呈现明显的季节性波动，Q4为销售高峰。",
+      "style": "vibrant",
+      "chart_config": {
+        "type": "line",
+        "data": {
+          "title": "月度销售额趋势",
+          "labels": ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
+          "series": [
+            {"name": "2025年", "values": [120, 98, 135, 142, 158, 165, 178, 172, 189, 210, 245, 238]}
+          ],
+          "y_label": "销售额（万元）"
+        }
+      }
+    },
+    {
+      "id": "cross_产品类别",
+      "title": "产品类别 × 销售额 分析",
+      "content_type": "chart",
+      "content": "各产品类别销售额占比，电子产品贡献最大。",
+      "style": "vibrant",
+      "chart_config": {
+        "type": "pie",
+        "data": {
+          "title": "产品类别销售额占比",
+          "labels": ["电子产品", "服装", "食品", "家居", "其他"],
+          "values": [680, 420, 350, 280, 120]
+        }
+      }
+    },
+    {
+      "id": "cross_区域",
+      "title": "区域 × 销售额 分析",
+      "content_type": "chart",
+      "content": "各区域销售额对比，华东区域领先。",
+      "style": "vibrant",
+      "chart_config": {
+        "type": "bar",
+        "data": {
+          "title": "区域销售额对比",
+          "labels": ["华东", "华南", "华北", "西南", "东北"],
+          "values": [520, 380, 350, 280, 200],
+          "y_label": "销售额（万元）"
+        }
+      }
+    },
+    {
+      "id": "dist_销售额",
+      "title": "销售额分布分析",
+      "content_type": "chart",
+      "content": "数值列销售额的分布分析。",
+      "style": "vibrant",
+      "chart_config": {
+        "type": "histogram",
+        "data": {
+          "title": "销售额分布",
+          "values": [120, 98, 135, 142, 158, 165, 178, 172, 189, 210, 245, 238],
+          "x_label": "销售额（万元）",
+          "y_label": "频次",
+          "bins": 10
+        }
+      }
+    },
+    {
+      "id": "correlation",
+      "title": "销售额与订单数相关性",
+      "content_type": "chart",
+      "content": "销售额与订单数的散点关系图，用于分析两数值列的相关性。",
+      "style": "vibrant",
+      "chart_config": {
+        "type": "scatter",
+        "data": {
+          "title": "销售额 vs 订单数",
+          "x_values": [120, 98, 135, 142, 158, 165],
+          "y_values": [45, 38, 52, 55, 62, 58],
+          "x_label": "销售额（万元）",
+          "y_label": "订单数"
+        }
+      }
+    },
+    {
+      "id": "data_table",
+      "title": "原始数据",
+      "content_type": "table",
+      "content": "原始数据表（前 15 行）",
+      "style": "vibrant",
+      "table_config": {
+        "title": "原始数据",
+        "headers": ["月份", "产品类别", "区域", "销售额", "订单数"],
+        "rows": [
+          ["1月", "电子产品", "华东", "120", "45"],
+          ["1月", "服装", "华南", "85", "32"],
+          ["1月", "食品", "华北", "60", "28"],
+          ["2月", "电子产品", "华东", "98", "38"],
+          ["2月", "服装", "华南", "72", "25"],
+          ["2月", "食品", "华北", "55", "22"],
+          ["3月", "电子产品", "华东", "135", "52"],
+          ["3月", "服装", "华南", "92", "35"],
+          ["3月", "食品", "华北", "68", "30"]
+        ]
+      }
+    },
+    {
+      "id": "conclusion",
+      "title": "结论与建议",
+      "content_type": "text",
+      "content": "[填写] 基于以上数据分析的结论和建议",
+      "style": "vibrant"
+    }
+  ],
+  "data_profile": {
+    "row_count": 3420,
+    "column_count": 8,
+    "missing_cells": 45,
+    "completeness": 0.998,
+    "numeric_columns": ["销售额", "订单数", "客单价"],
+    "categorical_columns": ["月份", "产品类别", "区域"]
+  },
+  "llm_config": {
+    "enabled": true,
+    "base_url": "https://api.deepseek.com/v1",
+    "model": "deepseek-flash",
+    "generate_conclusions": true,
+    "generate_descriptions": false,
+    "generate_summary": false
+  }
+}
