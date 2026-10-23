@@ -47,9 +47,23 @@
 
 ### PDF（可选）
 
-- 通过 WeasyPrint 从 HTML 转换
-- 需要安装：`pip install weasyprint`
-- 如果 WeasyPrint 不可用，回退输出 HTML
+支持两种 PDF 导出引擎，自动选择：优先 WeasyPrint（更高质量），失败时回退 xhtml2pdf（纯 Python）。
+
+| 引擎 | 质量 | 依赖 | Windows 兼容 | 推荐场景 |
+|------|------|------|-------------|---------|
+| WeasyPrint | 高 | 需 GTK3 系统库 | 需安装 GTK3 Runtime | Linux/Mac |
+| xhtml2pdf | 中 | 纯 Python，无外部依赖 | 直接可用 | Windows / 快速安装 |
+
+安装：
+```bash
+# 推荐 Windows 用户（纯 Python，无需 GTK3）
+pip install xhtml2pdf
+
+# Linux/Mac 用户（更高质量）
+pip install weasyprint
+
+# 两者都安装时自动优先使用 WeasyPrint
+```
 
 #### PDF 导出示例
 
@@ -109,7 +123,8 @@ python scripts/run_pipeline.py report.json --work-dir ./output --formats pdf
 
 | 包 | 用途 | 安装 |
 |----|------|------|
-| weasyprint | PDF 导出 | `pip install weasyprint` |
+| weasyprint | PDF 导出（高质量） | `pip install weasyprint` |
+| xhtml2pdf | PDF 导出（纯 Python，Windows 推荐） | `pip install xhtml2pdf` |
 
 ### 跨平台注意事项
 

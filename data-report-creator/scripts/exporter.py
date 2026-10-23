@@ -235,15 +235,35 @@ def export_html(composed: dict, output_path: Path) -> Path:
 def export_pdf(composed: dict, output_path: Path) -> Path:
     html_path = output_path.with_suffix(".html")
     export_html(composed, html_path)
+
+    # Try WeasyPrint first (best quality, needs GTK3 on Windows)
     try:
         from weasyprint import HTML
         HTML(str(html_path)).write_pdf(str(output_path))
         return output_path
     except ImportError:
-        print("[WARN] WeasyPrint not installed, PDF export skipped. pip install weasyprint")
+        pass
+    except Exception as exc:
+        print(f"[WARN] WeasyPrint PDF export failed: {exc}")
+
+    # Fallback: xhtml2pdf (pure Python, no external C libraries needed)
+    try:
+        from xhtml2pdf import pisa
+        html_content = html_path.read_text(encoding="utf-8")
+        with open(output_path, "wb") as f:
+            pisa_status = pisa.CreatePDF(html_content, dest=f)
+        if pisa_status.err:
+            print(f"[WARN] xhtml2pdf reported {pisa_status.err} errors")
+        print("[INFO] PDF exported via xhtml2pdf (fallback)")
+        return output_path
+    except ImportError:
+        print("[WARN] PDF export requires weasyprint or xhtml2pdf:")
+        print("       pip install weasyprint   (best quality, needs GTK3 on Windows)")
+        print("       pip install xhtml2pdf    (pure Python, no extra deps)")
         return html_path
     except Exception as exc:
-        print(f"[WARN] PDF export failed: {exc}")
+        print(f"[WARN] xhtml2pdf PDF export failed: {exc}")
+        print("[INFO] Try: pip install weasyprint (needs GTK3) or pip install xhtml2pdf")
         return html_path
 
 

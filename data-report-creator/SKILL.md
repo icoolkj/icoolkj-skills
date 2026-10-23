@@ -24,8 +24,8 @@ python scripts/compliance.py ../../work/my-report/report.json
 # 4. 一键生成（自动生成图表→组装内容→导出 Markdown/HTML/PDF）
 python scripts/run_pipeline.py ../../work/my-report/report.json --work-dir ../../work/my-report
 
-# 5. 导出 PDF（需先安装 weasyprint）
-pip install weasyprint
+# 5. 导出 PDF（需先安装 PDF 库）
+pip install xhtml2pdf
 python scripts/run_pipeline.py ../../work/my-report/report.json --work-dir ../../work/my-report --formats markdown html pdf
 ```
 
@@ -201,5 +201,6 @@ LLM 生成失败时不会中断流程，`[填写]` 占位符保留，可手动�
 ## 运行时依赖
 
 - Python 3.10+、pandas、openpyxl、matplotlib、Jinja2
-- 可选：WeasyPrint（PDF 导出）
+- 可选：xhtml2pdf（PDF 导出，纯 Python 无需 GTK3，推荐 Windows 用户）
+- 可选：WeasyPrint（PDF 导出，更高质量，Linux/Mac 推荐，Windows 需 GTK3）
 - 可选：requests（LLM 自动生成内容，支持 OpenAI 兼容 API）
