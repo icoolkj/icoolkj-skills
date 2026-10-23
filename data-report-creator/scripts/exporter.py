@@ -23,9 +23,16 @@ MARKDOWN_TEMPLATE = """# {{ title }}
 
 > 数据来源: {{ data_source }} | 生成日期: {{ created }} | 风格: {{ style }}
 
+{% set ns = namespace(counter=0) %}
 {% for section in sections %}
-## {{ loop.index }}. {{ section.title }}
+{% if section.id != 'cover' %}
+{% set ns.counter = ns.counter + 1 %}
+## {{ ns.counter }}. {{ section.title }}
 
+{% else %}
+## {{ section.title }}
+
+{% endif %}
 {% if section.content_type == "text" %}
 {{ section.content }}
 
@@ -165,9 +172,16 @@ tr:nth-child(even) td { background: rgba(0,0,0,0.02); }
 <h1>{{ title }}</h1>
 <div class="meta">数据来源: {{ data_source }} | 生成日期: {{ created }} | 风格: {{ style }}</div>
 
+{% set ns = namespace(counter=0) %}
 {% for section in sections %}
-<h2>{{ loop.index }}. {{ section.title }}</h2>
+{% if section.id != 'cover' %}
+{% set ns.counter = ns.counter + 1 %}
+<h2>{{ ns.counter }}. {{ section.title }}</h2>
 
+{% else %}
+<h2>{{ section.title }}</h2>
+
+{% endif %}
 {% if section.content_type == "text" %}
 <div class="content-block">{{ section.content | replace('\\n', '<br>') }}</div>
 
@@ -348,11 +362,17 @@ def export_pdf_reportlab(composed: dict, output_path: Path) -> Path:
 
     work_dir = output_path.parent
 
+    section_number = 0
     for section in composed.get("sections", []):
         ct = section.get("content_type", "text")
+        section_id = section.get("id", "")
 
-        # Section title
-        story.append(Paragraph(section.get("title", ""), h2_style))
+        # Section title (cover has no number, others are numbered sequentially)
+        if section_id == "cover":
+            story.append(Paragraph(section.get("title", ""), h2_style))
+        else:
+            section_number += 1
+            story.append(Paragraph(f"{section_number}. {section.get('title', '')}", h2_style))
 
         if ct == "text" or ct == "summary":
             content = section.get("content", "").replace("\n", "<br/>")
