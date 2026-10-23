@@ -2,7 +2,7 @@
 """Report exporter — outputs Markdown, HTML, and PDF formats.
 
 Uses Jinja2 templates for HTML, direct Markdown generation,
-and WeasyPrint for PDF (with HTML intermediate).
+and WeasyPrint or xhtml2pdf for PDF (with HTML intermediate).
 """
 
 from __future__ import annotations
@@ -216,6 +216,145 @@ tr:nth-child(even) td { background: rgba(0,0,0,0.02); }
 """
 
 
+# Simplified HTML template for PDF rendering (xhtml2pdf compatible)
+# No CSS variables, no grid, no flexbox — just basic inline-compatible CSS
+PDF_HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>{{ title }}</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #333333;
+  margin: 20px;
+}
+h1 {
+  color: {{ style_profile.primary_color }};
+  font-size: 22px;
+  border-bottom: 2px solid {{ style_profile.accent_color }};
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+}
+h2 {
+  color: {{ style_profile.primary_color }};
+  font-size: 16px;
+  margin-top: 24px;
+  margin-bottom: 8px;
+  border-left: 3px solid {{ style_profile.accent_color }};
+  padding-left: 10px;
+}
+.meta {
+  color: {{ style_profile.secondary_color }};
+  font-size: 11px;
+  margin-bottom: 20px;
+}
+.kpi-table {
+  width: 100%;
+  margin: 12px 0;
+  border-collapse: collapse;
+}
+.kpi-table td {
+  background-color: {{ style_profile.primary_color }};
+  color: white;
+  text-align: center;
+  padding: 12px 8px;
+  border: 2px solid white;
+  font-size: 11px;
+}
+.kpi-table .kpi-label { font-size: 10px; }
+.kpi-table .kpi-value { font-size: 16px; font-weight: bold; }
+.kpi-table .kpi-unit { font-size: 9px; }
+.chart-img {
+  max-width: 100%;
+  margin: 10px 0;
+  text-align: center;
+}
+.chart-img img { max-width: 500px; }
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 11px;
+}
+table.data-table th {
+  background-color: {{ style_profile.primary_color }};
+  color: white;
+  padding: 6px 8px;
+  text-align: left;
+}
+table.data-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid #dddddd;
+}
+.content-block { margin: 8px 0; }
+.footer {
+  margin-top: 30px;
+  padding-top: 10px;
+  border-top: 1px solid #dddddd;
+  color: #888888;
+  font-size: 10px;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+<h1>{{ title }}</h1>
+<div class="meta">数据来源: {{ data_source }} | 生成日期: {{ created }} | 风格: {{ style }}</div>
+
+{% for section in sections %}
+<h2>{{ loop.index }}. {{ section.title }}</h2>
+
+{% if section.content_type == "text" %}
+<div class="content-block">{{ section.content | replace('\\n', '<br>') }}</div>
+
+{% elif section.content_type == "summary" %}
+<div class="content-block">{{ section.content | replace('\\n', '<br>') }}</div>
+
+{% elif section.content_type == "kpi" %}
+<table class="kpi-table">
+<tr>
+{% for kpi in section.kpis %}
+<td>
+  <div class="kpi-label">{{ kpi.label }}</div>
+  <div class="kpi-value">{{ kpi.value }}</div>
+  <div class="kpi-unit">{{ kpi.unit }}</div>
+</td>
+{% endfor %}
+</tr>
+</table>
+
+{% elif section.content_type == "chart" %}
+{% if section.chart_path %}
+<div class="chart-img">
+  <img src="{{ section.chart_path }}" alt="{{ section.title }}">
+</div>
+{% endif %}
+<div class="content-block">{{ section.content }}</div>
+
+{% elif section.content_type == "table" %}
+{% if section.table_data %}
+<table class="data-table">
+<thead><tr>{% for h in section.table_data.headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+<tbody>
+{% for row in section.table_data.rows %}
+<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+{% endfor %}
+</tbody>
+</table>
+{% endif %}
+
+{% endif %}
+{% endfor %}
+
+<div class="footer">本报告由 data-report-creator 自动生成</div>
+</body>
+</html>
+"""
+
+
 def export_markdown(composed: dict, output_path: Path) -> Path:
     template = Template(MARKDOWN_TEMPLATE)
     content = template.render(**composed)
@@ -232,13 +371,23 @@ def export_html(composed: dict, output_path: Path) -> Path:
     return output_path
 
 
-def export_pdf(composed: dict, output_path: Path) -> Path:
-    html_path = output_path.with_suffix(".html")
-    export_html(composed, html_path)
+def _export_pdf_html(composed: dict, output_path: Path) -> Path:
+    """Generate simplified HTML optimized for PDF rendering."""
+    template = Template(PDF_HTML_TEMPLATE)
+    content = template.render(**composed)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(content, encoding="utf-8")
+    return output_path
 
-    # Try WeasyPrint first (best quality, needs GTK3 on Windows)
+
+def export_pdf(composed: dict, output_path: Path) -> Path:
+    work_dir = output_path.parent
+
+    # Try WeasyPrint first (best quality, uses standard HTML template)
     try:
         from weasyprint import HTML
+        html_path = output_path.with_suffix(".html")
+        export_html(composed, html_path)
         HTML(str(html_path)).write_pdf(str(output_path))
         return output_path
     except ImportError:
@@ -246,25 +395,32 @@ def export_pdf(composed: dict, output_path: Path) -> Path:
     except Exception as exc:
         print(f"[WARN] WeasyPrint PDF export failed: {exc}")
 
-    # Fallback: xhtml2pdf (pure Python, no external C libraries needed)
+    # Fallback: xhtml2pdf (uses simplified PDF-optimized HTML template)
     try:
         from xhtml2pdf import pisa
-        html_content = html_path.read_text(encoding="utf-8")
+        pdf_html_path = work_dir / "_report_pdf.html"
+        _export_pdf_html(composed, pdf_html_path)
+        html_content = pdf_html_path.read_text(encoding="utf-8")
         with open(output_path, "wb") as f:
             pisa_status = pisa.CreatePDF(html_content, dest=f)
         if pisa_status.err:
             print(f"[WARN] xhtml2pdf reported {pisa_status.err} errors")
+        # Clean up temp file
+        try:
+            pdf_html_path.unlink()
+        except Exception:
+            pass
         print("[INFO] PDF exported via xhtml2pdf (fallback)")
         return output_path
     except ImportError:
         print("[WARN] PDF export requires weasyprint or xhtml2pdf:")
         print("       pip install weasyprint   (best quality, needs GTK3 on Windows)")
         print("       pip install xhtml2pdf    (pure Python, no extra deps)")
-        return html_path
+        return output_path.with_suffix(".html")
     except Exception as exc:
         print(f"[WARN] xhtml2pdf PDF export failed: {exc}")
         print("[INFO] Try: pip install weasyprint (needs GTK3) or pip install xhtml2pdf")
-        return html_path
+        return output_path.with_suffix(".html")
 
 
 EXPORTERS = {
