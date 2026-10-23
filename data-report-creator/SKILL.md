@@ -1,12 +1,14 @@
 ---
 name: data-report-creator
-version: 1.1.0
-description: "Create professional data analysis reports from CSV/Excel/JSON data with mandatory user style selection: compliance-checked content, matplotlib charts (bar/line/pie/scatter/histogram/area), 10 visual styles, KPI cards, data tables, and Markdown/HTML/PDF export. Use for 数据分析报告, 数据报告, 自动报告, CSV分析, Excel分析, JSON分析, 数据可视化, 报告生成."
+version: 1.2.0
+description: "人工配置驱动的数据分析报告生成工具。用户通过命令行生成并手动编辑 report.json，再由本地 Python 流水线完成合规检查、图表渲染和 Markdown/HTML/PDF 导出。适用于希望直接控制配置、手工调整章节或使用 CLI 生成 CSV/Excel/JSON 数据报告的场景；不用于由模型通过自然语言主导报告规划的交互式分析。"
 ---
 
 # 数据分析报告创作 Skill
 
-从数据文件（CSV/Excel/JSON）生成专业数据分析报告。**两条强制流程**：①生成前必须让用户选择风格；②报告必须通过合规检查。
+从数据文件（CSV/Excel/JSON）生成专业数据分析报告。该 Skill 面向人工配置与 CLI 操作：用户决定报告结构和风格、检查并编辑 `report.json`，本地脚本负责数据处理和报告生成。
+
+**两条强制流程**：①生成前必须由用户选择风格；②报告必须通过合规检查。
 
 ## 快速开始
 
