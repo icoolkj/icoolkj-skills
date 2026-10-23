@@ -23,6 +23,10 @@ python scripts/compliance.py ../../work/my-report/report.json
 
 # 4. 一键生成（自动生成图表→组装内容→导出 Markdown/HTML/PDF）
 python scripts/run_pipeline.py ../../work/my-report/report.json --work-dir ../../work/my-report
+
+# 5. 导出 PDF（需先安装 weasyprint）
+pip install weasyprint
+python scripts/run_pipeline.py ../../work/my-report/report.json --work-dir ../../work/my-report --formats markdown html pdf
 ```
 
 输出：`report.md` + `report.html` + `report.pdf`（可选）+ `charts/` 图表目录。

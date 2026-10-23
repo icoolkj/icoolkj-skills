@@ -5,7 +5,7 @@
   "data_source": "data/sales.csv",
   "data_format": "csv",
   "style": "corporate",
-  "output_formats": ["markdown", "html"],
+  "output_formats": ["markdown", "html", "pdf"],
   "sections": [
     {
       "id": "cover",

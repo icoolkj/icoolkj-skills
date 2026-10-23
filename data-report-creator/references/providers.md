@@ -51,6 +51,49 @@
 - 需要安装：`pip install weasyprint`
 - 如果 WeasyPrint 不可用，回退输出 HTML
 
+#### PDF 导出示例
+
+**方式1：在 report.json 中指定**
+
+```json
+{
+  "output_formats": ["markdown", "html", "pdf"]
+}
+```
+
+```bash
+python scripts/run_pipeline.py report.json --work-dir ./output
+# 输出: report.md + report.html + report.pdf
+```
+
+**方式2：命令行覆盖**
+
+```json
+{
+  "output_formats": ["markdown", "html"]
+}
+```
+
+```bash
+python scripts/run_pipeline.py report.json --work-dir ./output --formats markdown html pdf
+# 输出: report.md + report.html + report.pdf
+```
+
+**方式3：只导出 PDF**
+
+```bash
+python scripts/run_pipeline.py report.json --work-dir ./output --formats pdf
+# 输出: report.pdf
+```
+
+#### WeasyPrint 安装注意事项
+
+| 系统 | 安装命令 | 备注 |
+|------|---------|------|
+| Linux | `pip install weasyprint` | 可能需要 `sudo apt install libpango-1.0-0 libpangoft2-1.0-0` |
+| macOS | `pip install weasyprint` | 可能需要 `brew install pango` |
+| Windows | `pip install weasyprint` | 可能需要安装 GTK3 Runtime |
+
 ## 依赖配置
 
 ### 必需依赖
