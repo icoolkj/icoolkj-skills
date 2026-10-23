@@ -66,7 +66,7 @@ MARKDOWN_TEMPLATE = """# {{ title }}
 {% endfor %}
 
 ---
-*本报告由 data-report-creator 自动生成*
+*本报告由数据分析报告 Agent 自动生成*
 """
 
 
@@ -227,7 +227,7 @@ tr:nth-child(even) td { background: rgba(0,0,0,0.02); }
 {% endif %}
 {% endfor %}
 
-<div class="footer">本报告由 data-report-creator 自动生成</div>
+<div class="footer">本报告由数据分析报告 Agent 自动生成</div>
 </body>
 </html>
 """

@@ -225,7 +225,7 @@ def build_report_plan(
         "id": "conclusion",
         "title": "结论与建议",
         "content_type": "text",
-        "content": "[填写] 基于以上数据分析的结论和建议",
+        "content": "（Agent 基于以上数据分析结果撰写结论与建议正文）",
         "style": style,
     })
 

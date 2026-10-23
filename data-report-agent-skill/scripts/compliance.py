@@ -78,7 +78,7 @@ def check_chart_config(section: dict) -> list[str]:
         issues.append(f"章节 {section.get('id', '?')} 是图表类型但缺少 chart_config")
         return issues
     chart_type = chart.get("type", "")
-    valid_types = ("bar", "line", "pie", "scatter", "histogram", "area", "heatmap", "table")
+    valid_types = ("bar", "line", "pie", "scatter", "histogram", "area", "table")
     if chart_type not in valid_types:
         issues.append(f"章节 {section.get('id', '?')} 图表类型无效: {chart_type}")
     chart_data = chart.get("data", {})

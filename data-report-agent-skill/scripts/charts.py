@@ -53,7 +53,7 @@ def _setup_chinese_font() -> None:
 _setup_chinese_font()
 
 
-CHART_TYPES = ("bar", "line", "pie", "scatter", "histogram", "area", "heatmap", "table")
+CHART_TYPES = ("bar", "line", "pie", "scatter", "histogram", "area", "table")
 
 
 def _apply_style(ax, style_profile: dict) -> None:
@@ -189,25 +189,6 @@ def generate_area(data: dict, output_path: Path, style_profile: dict) -> Path:
     return output_path
 
 
-GENERATORS = {
-    "bar": generate_bar,
-    "line": generate_line,
-    "pie": generate_pie,
-    "histogram": generate_histogram,
-    "scatter": generate_scatter,
-    "area": generate_area,
-}
-
-
-def generate_chart(chart_config: dict, output_path: Path, style_id: str = "corporate") -> Path:
-    chart_type = chart_config.get("type", "bar")
-    if chart_type not in GENERATORS:
-        raise ValueError(f"Unknown chart type: {chart_type}. Available: {list(GENERATORS)}")
-    style_profile = get_style(style_id)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    return GENERATORS[chart_type](chart_config.get("data", {}), output_path, style_profile)
-
-
 def generate_table_image(data: dict, output_path: Path, style_profile: dict) -> Path:
     fig, ax = plt.subplots(figsize=(10, 4), dpi=150)
     ax.axis("off")
@@ -231,3 +212,23 @@ def generate_table_image(data: dict, output_path: Path, style_profile: dict) -> 
     fig.savefig(output_path, dpi=150, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close(fig)
     return output_path
+
+
+GENERATORS = {
+    "bar": generate_bar,
+    "line": generate_line,
+    "pie": generate_pie,
+    "histogram": generate_histogram,
+    "scatter": generate_scatter,
+    "area": generate_area,
+    "table": generate_table_image,
+}
+
+
+def generate_chart(chart_config: dict, output_path: Path, style_id: str = "corporate") -> Path:
+    chart_type = chart_config.get("type", "bar")
+    if chart_type not in GENERATORS:
+        raise ValueError(f"Unknown chart type: {chart_type}. Available: {list(GENERATORS)}")
+    style_profile = get_style(style_id)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    return GENERATORS[chart_type](chart_config.get("data", {}), output_path, style_profile)
