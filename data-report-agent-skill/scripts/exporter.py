@@ -297,15 +297,33 @@ def _find_chinese_font() -> str:
         ]
     else:
         candidates = [
+            "/usr/share/fonts/wqy-microhei/wqy-microhei.ttc",
+            "/usr/share/fonts/wqy-zenhei/wqy-zenhei.ttc",
+            "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc",
             "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
             "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
             "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
             "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
         ]
 
     for path in candidates:
         if os.path.exists(path):
             return path
+
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["fc-list", ":lang=zh", "file"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            first_line = result.stdout.strip().split("\n")[0]
+            font_path = first_line.split(":")[0].strip()
+            if font_path and os.path.exists(font_path):
+                return font_path
+    except Exception:
+        pass
 
     return ""
 
@@ -494,7 +512,7 @@ def export_pdf_reportlab(composed: dict, output_path: Path) -> Path:
 
     # Footer
     story.append(Spacer(1, 10 * mm))
-    story.append(Paragraph("本报告由 data-report-creator 自动生成", footer_style))
+    story.append(Paragraph("本报告由数据分析报告 Agent 自动生成", footer_style))
 
     doc.build(story)
     return output_path
