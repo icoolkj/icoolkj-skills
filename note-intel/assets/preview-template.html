@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoteIntel 内容素材包预览</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  line-height: 1.7;
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+.header {
+  background: #16213e;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.header h1 {
+  font-size: 20px;
+  color: #e94560;
+  font-weight: 600;
+}
+.meta {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: #a0a0b0;
+}
+.meta span {
+  background: #0f3460;
+  padding: 4px 12px;
+  border-radius: 6px;
+}
+.mode-badge {
+  font-weight: 600;
+  color: #e94560;
+}
+.density-badge {
+  color: #53c9b1;
+}
+.module {
+  background: #16213e;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  border: 1px solid #0f3460;
+}
+.module-header {
+  padding: 16px 24px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  transition: background 0.2s;
+}
+.module-header:hover {
+  background: #1a2744;
+}
+.module-header h2 {
+  font-size: 16px;
+  color: #e94560;
+  font-weight: 600;
+}
+.module-header .toggle {
+  font-size: 14px;
+  color: #a0a0b0;
+  transition: transform 0.3s;
+}
+.module.collapsed .toggle {
+  transform: rotate(-90deg);
+}
+.module-body {
+  padding: 0 24px 20px;
+  transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.3s ease;
+  max-height: 5000px;
+  opacity: 1;
+}
+.module.collapsed .module-body {
+  max-height: 0;
+  padding: 0 24px;
+  opacity: 0;
+  overflow: hidden;
+}
+.fact-item {
+  background: #0f3460;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  border-left: 3px solid #e94560;
+}
+.fact-item:last-child { margin-bottom: 0; }
+.fact-content {
+  font-size: 14px;
+  color: #e0e0e0;
+  margin-bottom: 6px;
+}
+.fact-location {
+  font-size: 12px;
+  color: #a0a0b0;
+}
+.fact-quote {
+  font-size: 12px;
+  color: #7a7a9a;
+  font-style: italic;
+  margin-top: 4px;
+  padding-left: 12px;
+  border-left: 2px solid #3a3a5a;
+}
+.topic-item {
+  background: #0f3460;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  border-left: 3px solid #53c9b1;
+}
+.topic-item:last-child { margin-bottom: 0; }
+.topic-title {
+  font-size: 14px;
+  color: #53c9b1;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.topic-dim {
+  font-size: 12px;
+  color: #a0a0b0;
+  margin-bottom: 4px;
+}
+.topic-dim-label {
+  color: #7a7a9a;
+  display: inline-block;
+  width: 80px;
+}
+.topic-dim-value {
+  color: #c0c0d0;
+}
+.summary-box {
+  background: #0f3460;
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 14px;
+  color: #e0e0e0;
+  border-left: 3px solid #e94560;
+}
+.quote-item {
+  background: #0f3460;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  border-left: 3px solid #7a7a9a;
+}
+.quote-item:last-child { margin-bottom: 0; }
+.quote-text {
+  font-size: 13px;
+  color: #c0c0d0;
+  font-style: italic;
+  margin-bottom: 4px;
+}
+.quote-location {
+  font-size: 12px;
+  color: #7a7a9a;
+}
+.risk-item {
+  background: #2a1a1a;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  border-left: 3px solid #e94560;
+}
+.risk-item:last-child { margin-bottom: 0; }
+.risk-type {
+  font-size: 13px;
+  color: #e94560;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.risk-content {
+  font-size: 13px;
+  color: #c0a0a0;
+  margin-bottom: 4px;
+}
+.risk-suggestion {
+  font-size: 12px;
+  color: #a0a0b0;
+}
+.empty-note {
+  text-align: center;
+  color: #7a7a9a;
+  font-size: 13px;
+  padding: 20px;
+}
+.footer {
+  text-align: center;
+  color: #7a7a9a;
+  font-size: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #0f3460;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>NoteIntel 内容素材包</h1>
+  <div class="meta">
+    <span>来源：{source}</span>
+    <span class="mode-badge">模式：{mode}</span>
+    <span>字数：{word_count}</span>
+    <span class="density-badge">密度分：{density_score}</span>
+  </div>
+</div>
+
+<div class="module" id="module-summary">
+  <div class="module-header" onclick="toggleModule('module-summary')">
+    <h2>摘要</h2>
+    <span class="toggle">▼</span>
+  </div>
+  <div class="module-body">
+    <div class="summary-box">{summary}</div>
+  </div>
+</div>
+
+<div class="module" id="module-facts">
+  <div class="module-header" onclick="toggleModule('module-facts')">
+    <h2>核心事实</h2>
+    <span class="toggle">▼</span>
+  </div>
+  <div class="module-body">
+    {facts_html}
+  </div>
+</div>
+
+<div class="module" id="module-topics">
+  <div class="module-header" onclick="toggleModule('module-topics')">
+    <h2>创作选题</h2>
+    <span class="toggle">▼</span>
+  </div>
+  <div class="module-body">
+    {topics_html}
+  </div>
+</div>
+
+<div class="module" id="module-quotes">
+  <div class="module-header" onclick="toggleModule('module-quotes')">
+    <h2>原文引用</h2>
+    <span class="toggle">▼</span>
+  </div>
+  <div class="module-body">
+    {quotes_html}
+  </div>
+</div>
+
+<div class="module" id="module-risks">
+  <div class="module-header" onclick="toggleModule('module-risks')">
+    <h2>风险提示</h2>
+    <span class="toggle">▼</span>
+  </div>
+  <div class="module-body">
+    {risks_html}
+  </div>
+</div>
+
+<div class="footer">
+  NoteIntel 内容素材包 | 生成时间：{timestamp}
+</div>
+
+<script>
+function toggleModule(id) {
+  var el = document.getElementById(id);
+  el.classList.toggle('collapsed');
+}
+</script>
+
+</body>
+</html>
