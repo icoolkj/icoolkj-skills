@@ -1,6 +1,6 @@
 ---
 name: note-intel
-description: 自媒体内容情报与图文策划 Skill。把一篇文章/资料/网页转化为结构化、可核对、可继续创作的内容素材包。弹性约束设计——先判断素材的篇幅和信息密度，再动态决定提取多少事实、生成多少选题，绝不虚构、绝不强制填充。
+description: 自媒体内容情报与图文策划 Skill。把一篇文章/资料/网页转化为结构化、可核对、可继续创作的内容素材包。弹性约束设计——先判断素材的篇幅和信息密度，再动态决定提取多少事实、生成多少选题，绝不虚构、绝不强制填充。支持选题评分、多素材合并、素材对比。
 ---
 
 # NoteIntel — 自媒体内容情报与图文策划
@@ -28,9 +28,28 @@ python scripts/analyze_material.py --input <URL|文件路径|文本> --output an
 - 文件读取
 - 文本清洗
 - 字数统计
-- 信息密度评估（8项指标）
+- 信息密度评估（12项指标）
 - 模式判定（精简/标准/深度）
 - 配额表生成
+
+**密度评估指标（12项）**：
+
+| 指标 | 说明 |
+|------|------|
+| 独立事实数 | 含数字/百分比/专有名词的句子数 |
+| 数据存在性 | 是否包含具体数字统计 |
+| 案例存在性 | 是否包含引号引用/案例描述 |
+| 方法存在性 | 是否包含步骤/流程/方法论关键词 |
+| 重复观点比 | 句子级Jaccard相似度去重率 |
+| 主题分散度 | 段落关键词重叠度 |
+| 可核验结论 | 含结论词的句子数 |
+| 创作角度数 | 可切入角度估算 |
+| 对比存在性 | 是否包含对比/同比/环比 |
+| 趋势存在性 | 是否包含趋势/预测关键词 |
+| 数据多样性 | 不同类型数据的丰富度（6类） |
+| 逻辑连贯性 | 段落间逻辑连接词密度 |
+| 观点平衡性 | 正反面观点的平衡程度 |
+| 信息新鲜度 | 数据年份的新近程度 |
 
 输出 `analysis.json`，包含 `mode`、`density_score`、`density_factors`、`quotas`、`clean_text`。
 
@@ -50,7 +69,12 @@ python scripts/analyze_material.py --input <URL|文件路径|文本> --output an
 | 标准 | 800-3000字 | 4-8 | 3-5 |
 | 深度 | >3000字 | 6-12 | 4-7 |
 
-密度修正：密度分 >0.7 可上调一级；密度分 <0.3 可下调一级。
+**密度修正规则（多级阈值）**：
+- 密度分 >0.75：上调一级
+- 密度分 >0.6 且 fact_count≥4 或 data_diversity≥3：精简可上调为标准
+- 密度分 <0.25：下调一级
+- 密度分 <0.35 且 fact_count<2 且 data_diversity<1：标准可下调为精简
+- 边界处理：750-850字和2900-3100字区间特殊判定
 
 ### 步骤3：信息提取
 
@@ -100,10 +124,12 @@ python scripts/analyze_material.py --input <URL|文件路径|文本> --output an
 | 引用完整 | 引用片段未截断、未修改 |
 | 风险项识别 | 敏感/未证实/主观内容已标注 |
 | 选题有据 | 每条选题关联至少一条事实 |
+| 选题-事实关联一致 | 关联的事实编号在事实列表中存在 |
+| 选题标题唯一 | 无重复选题标题 |
 
 ### 步骤6：素材包输出
 
-将内容组装为素材包JSON，调用导出脚本生成MD + HTML预览。
+将内容组装为素材包JSON，调用导出脚本生成MD + HTML预览 + JSON。
 
 素材包JSON格式：
 ```json
@@ -131,12 +157,13 @@ python scripts/analyze_material.py --input <URL|文件路径|文本> --output an
 
 调用导出脚本：
 ```bash
-python scripts/export_pack.py --content pack.json --template-md assets/content-pack-template.md --template-html assets/preview-template.html --output-dir ./output
+python scripts/export_pack.py --content pack.json --template-md assets/content-pack-template.md --template-html assets/preview-template.html --output-dir ./output --formats md,html,json
 ```
 
 输出：
 - `content-pack.md` — Markdown格式素材包
-- `preview.html` — HTML预览页面（含模块折叠展开交互）
+- `content-pack.preview.html` — HTML预览页面（含搜索过滤、折叠展开、事实-选题关联高亮、打印）
+- `content-pack.json` — JSON格式素材包（供程序消费）
 
 **弹性规则**：`quotes` 和 `risks` 数组为空时，MD和HTML中对应模块整块省略。
 
@@ -145,17 +172,66 @@ python scripts/export_pack.py --content pack.json --template-md assets/content-p
 调用校验脚本验证结构完整性：
 
 ```bash
-python scripts/validate_pack.py --pack output/content-pack.md --quotas analysis.json
+python scripts/validate_pack.py --pack output/content-pack.md --quotas analysis.json --source original_text.txt
 ```
 
-校验项：
+校验项（12项）：
 - 结构完整性（必需模块齐全）
 - 占位符残留（无 `{xxx}` 残留）
 - 引用可追溯（每条事实有原文定位）
 - 配额合规（事实/选题数量在配额范围内）
 - 选题维度完整（每条选题含4维度）
+- 选题-事实关联一致性（引用的事实编号存在）
+- 摘要长度合理性（30-300字）
+- 选题标题唯一性（无重复标题）
+- 事实引用标注（每条事实有📎标注）
+- 虚构检测（原文引用在素材中可找到，需--source参数）
+- 可选模块内容非空（有模块标题但内容为空时警告）
 
 如有错误，修正后重新生成。
+
+### 步骤8（可选）：选题评分
+
+对生成的选题进行评分排序，辅助创作优先级决策。
+
+```bash
+python scripts/score_topics.py --pack output/content-pack.json
+```
+
+评分维度：
+- **增量价值**（40%）：角度类型 + 关联事实充分性
+- **传播潜力**（40%）：受众传播力 + 内容形式传播力
+- **创作难度**（20%）：内容形式的创作难度（反向）
+
+输出每个选题的综合评分和推荐等级（强烈推荐/推荐/可选/暂缓）。
+
+### 步骤9（可选）：多素材合并
+
+当用户提供多个素材来源时，可分别生成素材包后合并。
+
+```bash
+python scripts/merge_packs.py --packs pack_a.json pack_b.json --output merged.json
+```
+
+合并功能：
+- 事实去重（基于内容归一化匹配）
+- 选题关联事实编号重映射（基于去重后的新编号）
+- 引用去重、风险去重
+- 合并信息统计（原始数量 vs 去重后数量）
+
+### 步骤10（可选）：素材对比
+
+对比两个素材包的信息覆盖差异。
+
+```bash
+python scripts/compare_packs.py --pack-a pack_a.json --pack-b pack_b.json
+```
+
+对比内容：
+- 事实差异（仅A有/仅B有/共有）
+- 选题差异（仅A有/仅B有/共有）
+- 引用差异
+- 覆盖率分析（A覆盖B的百分比，B覆盖A的百分比）
 
 ---
 
@@ -164,17 +240,21 @@ python scripts/validate_pack.py --pack output/content-pack.md --quotas analysis.
 ```
 note-intel/
 ├── SKILL.md                        # 本文档
+├── DESIGN.md                       # 架构设计文档
 ├── references/
 │   ├── extraction-guide.md         # 信息提取指南
 │   ├── topic-formulas.md           # 选题生成公式
 │   └── compliance-rules.md         # 合规规则
 ├── scripts/
-│   ├── analyze_material.py         # 输入处理 + 评估定模
-│   ├── validate_pack.py            # 素材包校验
-│   └── export_pack.py              # MD + HTML 导出
+│   ├── analyze_material.py         # 输入处理 + 评估定模（12项密度指标）
+│   ├── validate_pack.py            # 素材包校验（12项校验规则）
+│   ├── export_pack.py              # MD + HTML + JSON 导出
+│   ├── score_topics.py             # 选题评分（增量价值/传播潜力/创作难度）
+│   ├── merge_packs.py              # 多素材合并（事实去重/编号重映射）
+│   └── compare_packs.py            # 素材对比（事实差异/选题差异/覆盖率）
 ├── assets/
 │   ├── content-pack-template.md    # MD素材包模板
-│   └── preview-template.html       # HTML预览模板
+│   └── preview-template.html       # HTML预览模板（搜索/折叠/关联高亮/打印）
 └── examples/
     ├── example-concise.md          # 精简模式示例
     ├── example-standard.md         # 标准模式示例
