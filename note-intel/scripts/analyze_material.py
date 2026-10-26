@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-NoteIntel - 素材分析器
+NoteIntel - 素材分析器 v0.3
 输入处理（URL抓取/文件读取/清洗）+ 评估定模（字数+密度+配额表）
+增强：4个新密度指标、多级密度修正、改进的事实识别和主题分析
 零额外依赖，仅使用Python标准库
 """
 
@@ -10,6 +11,7 @@ import json
 import re
 import sys
 import os
+from collections import Counter
 from urllib import request, parse
 from html.parser import HTMLParser
 from datetime import datetime
@@ -98,23 +100,42 @@ def split_paragraphs(text):
     return [p.strip() for p in paragraphs if p.strip() and len(p.strip()) > 10]
 
 
+# ============================================================
+# 原有密度指标（优化版）
+# ============================================================
+
 def count_facts(sentences):
     fact_count = 0
     for s in sentences:
-        has_number = bool(re.search(r'\d+[%％]|\d+\.?\d*[亿万千百十]|^\d+', s))
-        has_proper_noun = bool(re.search(r'[A-Z][a-z]+|[\u4e00-\u9fff]{2,}(公司|机构|研究|报告|数据)', s))
-        has_data_keyword = bool(re.search(r'(达到|增长|下降|占比|超过|约为|同比|环比|首次|突破)', s))
-        if has_number or (has_proper_noun and has_data_keyword):
+        has_number = bool(re.search(
+            r'\d+[%％]|\d+\.?\d*\s*[亿万千百十]|^\d+|\d{4}年', s
+        ))
+        has_proper_noun = bool(re.search(
+            r'[A-Z][a-z]+|[\u4e00-\u9fff]{2,}(公司|机构|研究|报告|数据|集团|品牌|平台|市场|行业|政策|法案)',
+            s
+        ))
+        has_data_keyword = bool(re.search(
+            r'(达到|增长|下降|占比|超过|约为|同比|环比|首次|突破|预计|降低|提升|占据|领先|规模|渗透|投资|出口)',
+            s
+        ))
+        has_comparison = bool(re.search(
+            r'(相比|对比|高于|低于|多于|少于|相当于|差距|领先|落后| versus|vs)',
+            s, re.IGNORECASE
+        ))
+        if has_number or (has_proper_noun and has_data_keyword) or (has_number and has_comparison):
             fact_count += 1
     return fact_count
 
 
 def check_has_data(text):
-    return bool(re.search(r'\d+\.?\d*\s*(%|％|万|亿|千|百|元|吨|辆|人|次|个|家|款|台|份)', text))
+    return bool(re.search(
+        r'\d+\.?\d*\s*(%|％|万|亿|千|百|元|吨|辆|人|次|个|家|款|台|份|美元|千瓦时|度)',
+        text
+    ))
 
 
 def check_has_case(text):
-    case_keywords = ['例如', '比如', '案例', '实例', '如：', '举例']
+    case_keywords = ['例如', '比如', '案例', '实例', '如：', '举例', '以...为例', '其中']
     quote_chars = ['\u201c', '\u201d', '\u2018', '\u2019', '\u300c', '\u300d', '\u300e', '\u300f']
     has_keyword = any(kw in text for kw in case_keywords)
     has_quote = any(qc in text for qc in quote_chars)
@@ -124,7 +145,7 @@ def check_has_case(text):
 def check_has_method(text):
     method_keywords = ['步骤', '流程', '方法', '策略', '方案', '模式', '框架', '体系',
                        '第一步', '第二步', '首先', '其次', '然后', '最后',
-                       'step', 'process', 'method', 'approach']
+                       'step', 'process', 'method', 'approach', '方法论', '路径']
     return any(kw in text.lower() for kw in method_keywords)
 
 
@@ -169,7 +190,8 @@ def calculate_topic_independence(paragraphs):
 
 def count_verifiable_conclusions(sentences):
     conclusion_keywords = ['因此', '所以', '表明', '证明', '说明', '显示', '意味着',
-                           '由此', '可见', '可以判断', '可以得出', '证实', '确认']
+                           '由此', '可见', '可以判断', '可以得出', '证实', '确认',
+                           '标志着', '反映了', '揭示了', '导致了']
     count = 0
     for s in sentences:
         if any(kw in s for kw in conclusion_keywords):
@@ -178,7 +200,8 @@ def count_verifiable_conclusions(sentences):
 
 
 def estimate_creation_angles(fact_count, has_data, has_case, has_method,
-                             topic_independence, verifiable_conclusions):
+                             topic_independence, verifiable_conclusions,
+                             has_comparison, has_trend):
     angles = 0
     if has_data:
         angles += 1
@@ -192,8 +215,97 @@ def estimate_creation_angles(fact_count, has_data, has_case, has_method,
         angles += 1
     if fact_count >= 5:
         angles += 1
+    if has_comparison:
+        angles += 1
+    if has_trend:
+        angles += 1
     return min(angles, 6)
 
+
+# ============================================================
+# 新增密度指标
+# ============================================================
+
+def check_has_comparison(text):
+    comparison_keywords = ['相比', '对比', '高于', '低于', '多于', '少于',
+                           '相当于', '差距', '领先', '落后', ' versus ', 'vs',
+                           '同比', '环比', '较', '相比去年', '相比上月']
+    return any(kw in text for kw in comparison_keywords)
+
+
+def check_has_trend(text):
+    trend_keywords = ['趋势', '预测', '预计', '未来', '展望', '前景',
+                      '将持续', '将增长', '将下降', '将提升', '将突破',
+                      '发展方向', '演进', '转型', '升级', '迭代']
+    return any(kw in text for kw in trend_keywords)
+
+
+def calculate_data_diversity(text):
+    data_types = 0
+    if re.search(r'\d+\.?\d*\s*(%|％)', text):
+        data_types += 1
+    if re.search(r'\d+\.?\d*\s*(万|亿|千|百)', text):
+        data_types += 1
+    if re.search(r'\d+\.?\d*\s*(元|美元|千瓦时|度)', text):
+        data_types += 1
+    if re.search(r'\d+\.?\d*\s*(辆|人|次|个|家|款|台|份|吨)', text):
+        data_types += 1
+    if re.search(r'\d{4}年', text):
+        data_types += 1
+    if re.search(r'(第\d+|排名|最大|最小|首位|领先)', text):
+        data_types += 1
+    return min(data_types, 6)
+
+
+def calculate_logic_coherence(text, paragraphs):
+    if len(paragraphs) < 2:
+        return 1.0
+    transition_keywords = ['因此', '所以', '然而', '但是', '此外', '另外',
+                           '同时', '与此同时', '另一方面', '首先', '其次',
+                           '然后', '最后', '总之', '综上', '换言之', '不仅如此',
+                           '相比之下', '值得注意的是', '更重要的是']
+    transition_count = 0
+    for p in paragraphs:
+        for kw in transition_keywords:
+            if kw in p:
+                transition_count += 1
+    max_possible = len(paragraphs) * 2
+    return min(transition_count / max_possible, 1.0) if max_possible > 0 else 0.0
+
+
+def calculate_viewpoint_balance(text):
+    positive_keywords = ['增长', '提升', '突破', '领先', '成功', '优势', '利好', '进步']
+    negative_keywords = ['下降', '降低', '落后', '失败', '劣势', '风险', '挑战', '问题']
+    cautionary_keywords = ['但是', '然而', '需要注意', '值得注意', '尽管', '虽然', '不过']
+    pos_count = sum(1 for kw in positive_keywords if kw in text)
+    neg_count = sum(1 for kw in negative_keywords if kw in text)
+    cau_count = sum(1 for kw in cautionary_keywords if kw in text)
+    if pos_count + neg_count == 0:
+        return 0.0
+    balance = 1.0 - abs(pos_count - neg_count) / (pos_count + neg_count)
+    if cau_count > 0:
+        balance = min(balance + 0.1 * min(cau_count, 3), 1.0)
+    return round(balance, 2)
+
+
+def calculate_information_freshness(text):
+    current_year = datetime.now().year
+    years_found = re.findall(r'(20\d{2})年', text)
+    if not years_found:
+        return 0.0
+    recent_count = 0
+    for y in years_found:
+        try:
+            if int(y) >= current_year - 2:
+                recent_count += 1
+        except ValueError:
+            continue
+    return round(min(recent_count / max(len(years_found), 1), 1.0), 2)
+
+
+# ============================================================
+# 增强的评估和模式判定
+# ============================================================
 
 def evaluate_density(text, sentences, paragraphs):
     fact_count = count_facts(sentences)
@@ -203,20 +315,33 @@ def evaluate_density(text, sentences, paragraphs):
     repeat_ratio = calculate_repeat_ratio(sentences)
     topic_independence = calculate_topic_independence(paragraphs)
     verifiable_conclusions = count_verifiable_conclusions(sentences)
+
+    has_comparison = check_has_comparison(text)
+    has_trend = check_has_trend(text)
+    data_diversity = calculate_data_diversity(text)
+    logic_coherence = calculate_logic_coherence(text, paragraphs)
+    viewpoint_balance = calculate_viewpoint_balance(text)
+    info_freshness = calculate_information_freshness(text)
+
     creation_angles = estimate_creation_angles(
         fact_count, has_data, has_case, has_method,
-        topic_independence, verifiable_conclusions
+        topic_independence, verifiable_conclusions,
+        has_comparison, has_trend
     )
 
     score = 0.0
-    score += min(fact_count / 8, 1.0) * 0.25
-    score += (1.0 if has_data else 0.0) * 0.10
-    score += (1.0 if has_case else 0.0) * 0.10
-    score += (1.0 if has_method else 0.0) * 0.05
-    score += (1.0 - repeat_ratio) * 0.10
-    score += topic_independence * 0.20
-    score += min(verifiable_conclusions / 3, 1.0) * 0.10
-    score += min(creation_angles / 4, 1.0) * 0.10
+    score += min(fact_count / 8, 1.0) * 0.18
+    score += (1.0 if has_data else 0.0) * 0.08
+    score += (1.0 if has_case else 0.0) * 0.06
+    score += (1.0 if has_method else 0.0) * 0.04
+    score += (1.0 - repeat_ratio) * 0.08
+    score += topic_independence * 0.12
+    score += min(verifiable_conclusions / 3, 1.0) * 0.08
+    score += min(creation_angles / 4, 1.0) * 0.08
+    score += min(data_diversity / 4, 1.0) * 0.10
+    score += logic_coherence * 0.06
+    score += viewpoint_balance * 0.06
+    score += info_freshness * 0.06
 
     density_factors = {
         "fact_count": fact_count,
@@ -226,13 +351,19 @@ def evaluate_density(text, sentences, paragraphs):
         "repeat_ratio": round(repeat_ratio, 2),
         "topic_independence": round(topic_independence, 2),
         "verifiable_conclusions": verifiable_conclusions,
-        "creation_angles": creation_angles
+        "creation_angles": creation_angles,
+        "has_comparison": has_comparison,
+        "has_trend": has_trend,
+        "data_diversity": data_diversity,
+        "logic_coherence": round(logic_coherence, 2),
+        "viewpoint_balance": viewpoint_balance,
+        "info_freshness": info_freshness
     }
 
     return round(score, 2), density_factors
 
 
-def determine_mode(word_count, density_score):
+def determine_mode(word_count, density_score, density_factors=None):
     if word_count < 800:
         initial = "concise"
     elif word_count <= 3000:
@@ -240,16 +371,41 @@ def determine_mode(word_count, density_score):
     else:
         initial = "deep"
 
-    if density_score > 0.7:
+    if density_score > 0.75:
         if initial == "concise":
             initial = "standard"
         elif initial == "standard":
             initial = "deep"
-    elif density_score < 0.3:
+    elif density_score > 0.6:
+        if initial == "concise" and density_factors:
+            if (density_factors.get("fact_count", 0) >= 4 or
+                density_factors.get("data_diversity", 0) >= 3):
+                initial = "standard"
+    elif density_score < 0.25:
         if initial == "deep":
             initial = "standard"
         elif initial == "standard":
             initial = "concise"
+    elif density_score < 0.35:
+        if initial == "deep" and density_factors:
+            if (density_factors.get("fact_count", 0) < 5 and
+                density_factors.get("data_diversity", 0) < 2):
+                initial = "standard"
+        if initial == "standard" and density_factors:
+            if (density_factors.get("fact_count", 0) < 2 and
+                density_factors.get("data_diversity", 0) < 1):
+                initial = "concise"
+
+    if word_count >= 750 and word_count <= 850:
+        if density_score > 0.5:
+            initial = "standard"
+        elif density_score < 0.3:
+            initial = "concise"
+    if word_count >= 2900 and word_count <= 3100:
+        if density_score < 0.4:
+            initial = "standard"
+        elif density_score > 0.7:
+            initial = "deep"
 
     return initial
 
@@ -299,7 +455,7 @@ def analyze(input_source):
     paragraphs = split_paragraphs(text)
 
     density_score, density_factors = evaluate_density(text, sentences, paragraphs)
-    mode = determine_mode(word_count, density_score)
+    mode = determine_mode(word_count, density_score, density_factors)
     quotas = generate_quotas(mode)
 
     result = {
@@ -318,7 +474,7 @@ def analyze(input_source):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="NoteIntel 素材分析器")
+    parser = argparse.ArgumentParser(description="NoteIntel 素材分析器 v0.3")
     parser.add_argument("--input", required=True, help="输入源：URL、文件路径、或文本")
     parser.add_argument("--output", help="输出文件路径（默认输出到stdout）")
     args = parser.parse_args()

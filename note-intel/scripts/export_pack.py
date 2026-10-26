@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-NoteIntel - 素材包导出器
-将Agent生成的内容组装为MD + HTML双格式输出
+NoteIntel - 素材包导出器 v0.3
+将Agent生成的内容组装为MD + HTML + JSON多格式输出
+增强：JSON格式导出、HTML搜索过滤、事实-选题关联高亮、自定义文件名
 零额外依赖，仅使用Python标准库
 """
 
@@ -23,6 +24,10 @@ def read_file(path):
         return None
 
 
+# ============================================================
+# HTML 片段构建（增强版：关联高亮 + data属性）
+# ============================================================
+
 def build_facts_html(facts):
     if not facts:
         return '<div class="empty-note">无核心事实</div>'
@@ -31,7 +36,7 @@ def build_facts_html(facts):
         content = escape(fact.get("content", ""))
         location = escape(fact.get("location", ""))
         quote = escape(fact.get("quote", ""))
-        html = f'<div class="fact-item">'
+        html = f'<div class="fact-item" data-fact-id="{i}" id="fact-{i}">'
         html += f'<div class="fact-content">{content}</div>'
         if location:
             html += f'<div class="fact-location">📍 {location}</div>'
@@ -52,7 +57,11 @@ def build_topics_html(topics):
         audience = escape(topic.get("audience", ""))
         form = escape(topic.get("form", ""))
         related = escape(topic.get("related_facts", ""))
-        html = f'<div class="topic-item">'
+
+        related_fact_ids = re.findall(r'(\d+)', related)
+        related_attrs = ' '.join(f'data-related-fact="{fid}"' for fid in related_fact_ids)
+
+        html = f'<div class="topic-item" data-topic-id="{i}" {related_attrs}>'
         html += f'<div class="topic-title">{title}</div>'
         if angle:
             html += f'<div class="topic-dim"><span class="topic-dim-label">切入角度</span><span class="topic-dim-value">{angle}</span></div>'
@@ -61,7 +70,12 @@ def build_topics_html(topics):
         if form:
             html += f'<div class="topic-dim"><span class="topic-dim-label">内容形式</span><span class="topic-dim-value">{form}</span></div>'
         if related:
-            html += f'<div class="topic-dim"><span class="topic-dim-label">关联事实</span><span class="topic-dim-value">{related}</span></div>'
+            related_html = related
+            for fid in related_fact_ids:
+                related_html = related_html.replace(
+                    f'#{fid}', f'<a href="#fact-{fid}" class="fact-link" onclick="highlightFact({fid})">#{fid}</a>'
+                )
+            html += f'<div class="topic-dim"><span class="topic-dim-label">关联事实</span><span class="topic-dim-value">{related_html}</span></div>'
         html += '</div>'
         items.append(html)
     return '\n'.join(items)
@@ -71,7 +85,7 @@ def build_quotes_html(quotes):
     if not quotes:
         return '<div class="empty-note">无原文引用</div>'
     items = []
-    for quote in quotes:
+    for i, quote in enumerate(quotes, 1):
         text = escape(quote.get("text", ""))
         location = escape(quote.get("location", ""))
         html = f'<div class="quote-item">'
@@ -87,7 +101,7 @@ def build_risks_html(risks):
     if not risks:
         return '<div class="empty-note">无风险提示</div>'
     items = []
-    for risk in risks:
+    for i, risk in enumerate(risks, 1):
         rtype = escape(risk.get("type", ""))
         content = escape(risk.get("content", ""))
         suggestion = escape(risk.get("suggestion", ""))
@@ -102,6 +116,10 @@ def build_risks_html(risks):
         items.append(html)
     return '\n'.join(items)
 
+
+# ============================================================
+# MD 片段构建（不变）
+# ============================================================
 
 def build_facts_md(facts):
     if not facts:
@@ -174,6 +192,16 @@ def build_risks_md(risks):
     return '\n'.join(lines)
 
 
+# ============================================================
+# 导出函数
+# ============================================================
+
+def escape_md(text):
+    if not text:
+        return ""
+    return text.replace("|", "\\|").replace("{", "\\{").replace("}", "\\}")
+
+
 def export_md(content_data, template_path, output_path):
     template = read_file(template_path)
     if not template:
@@ -215,10 +243,22 @@ def export_md(content_data, template_path, output_path):
     return output_path
 
 
-def escape_md(text):
-    if not text:
-        return ""
-    return text.replace("|", "\\|").replace("{", "\\{").replace("}", "\\}")
+def export_json(content_data, output_path):
+    export_data = {
+        "source": content_data.get("source", ""),
+        "mode": content_data.get("mode", ""),
+        "word_count": content_data.get("word_count", 0),
+        "density_score": content_data.get("density_score", 0),
+        "timestamp": content_data.get("timestamp", datetime.now().isoformat()),
+        "summary": content_data.get("summary", ""),
+        "facts": content_data.get("facts", []),
+        "topics": content_data.get("topics", []),
+        "quotes": content_data.get("quotes", []),
+        "risks": content_data.get("risks", [])
+    }
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(export_data, f, ensure_ascii=False, indent=2)
+    return output_path
 
 
 def export_html(content_data, template_path, output_path):
@@ -255,34 +295,43 @@ def export_html(content_data, template_path, output_path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="NoteIntel 素材包导出器")
+    parser = argparse.ArgumentParser(description="NoteIntel 素材包导出器 v0.3")
     parser.add_argument("--content", required=True, help="素材包内容JSON文件路径")
     parser.add_argument("--template-md", help="MD模板文件路径")
     parser.add_argument("--template-html", help="HTML模板文件路径")
     parser.add_argument("--output-dir", required=True, help="输出目录")
+    parser.add_argument("--name", default="content-pack", help="输出文件名前缀（默认content-pack）")
+    parser.add_argument("--formats", default="md,html,json", help="输出格式，逗号分隔（默认md,html,json）")
     args = parser.parse_args()
 
     with open(args.content, 'r', encoding='utf-8') as f:
         content_data = json.load(f)
 
     os.makedirs(args.output_dir, exist_ok=True)
+    formats = [f.strip() for f in args.formats.split(',')]
 
-    md_path = os.path.join(args.output_dir, "content-pack.md")
-    html_path = os.path.join(args.output_dir, "preview.html")
+    outputs = {}
 
-    if args.template_md:
-        export_md(content_data, args.template_md, md_path)
-    else:
-        export_md(content_data, "", md_path)
+    if 'md' in formats:
+        md_path = os.path.join(args.output_dir, f"{args.name}.md")
+        if args.template_md:
+            export_md(content_data, args.template_md, md_path)
+        else:
+            export_md(content_data, "", md_path)
+        outputs["md_path"] = md_path
 
-    if args.template_html:
+    if 'html' in formats and args.template_html:
+        html_path = os.path.join(args.output_dir, f"{args.name}.preview.html")
         export_html(content_data, args.template_html, html_path)
+        outputs["html_path"] = html_path
 
-    print(json.dumps({
-        "md_path": md_path,
-        "html_path": html_path if args.template_html else None,
-        "status": "success"
-    }, ensure_ascii=False, indent=2))
+    if 'json' in formats:
+        json_path = os.path.join(args.output_dir, f"{args.name}.json")
+        export_json(content_data, json_path)
+        outputs["json_path"] = json_path
+
+    outputs["status"] = "success"
+    print(json.dumps(outputs, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
