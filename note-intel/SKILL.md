@@ -80,6 +80,12 @@ python scripts/analyze_material.py --input <URL|文件路径|文本> --output an
 
 按配额表提取核心事实。**必须遵循 `references/extraction-guide.md` 中的提取标准。**
 
+**辅助工具**：可先运行事实候选提取器，获取候选句子列表（带段落/句子编号和优先级），在候选列表上筛选和定位标注：
+
+```bash
+python scripts/extract_candidates.py --input <清洗后文本文件> --quota <core_facts配额上限>
+```
+
 关键规则：
 - 每条事实必须可在原文中找到对应内容（不虚构）
 - 每条事实必须标注原文定位（段落编号+引用片段）
@@ -112,6 +118,12 @@ python scripts/analyze_material.py --input <URL|文件路径|文本> --output an
 ### 步骤5：合规校验
 
 **必须遵循 `references/compliance-rules.md` 中的合规规则。**
+
+**辅助工具**：可先运行风险扫描器，获取候选风险列表（6类风险自动识别），在此基础上判断和补充：
+
+```bash
+python scripts/scan_risks.py --input <清洗后文本文件>
+```
 
 逐项自检：
 
@@ -235,18 +247,101 @@ python scripts/compare_packs.py --pack-a pack_a.json --pack-b pack_b.json
 
 ---
 
+## Agent 执行提示
+
+以下 prompt 骨架可直接复用，确保关键约束不被遗漏。将 `{analysis_json}` 替换为步骤1的输出，`{source_text}` 替换为清洗后的原文。
+
+### 步骤3：信息提取 prompt
+
+```
+你是内容分析师。请对以下素材执行信息提取。
+
+配额表：{quotas}
+模式：{mode}
+
+提取规则：
+1. 按配额表 {core_facts} 条提取核心事实，不多不少
+2. 每条事实必须：含具体数据或可验证结论 + 标注原文定位（第X段，第Y句）+ 附原文引用（📎 标注）
+3. 严格区分事实与观点——"我认为""应该""最好"等主观判断不作为事实
+4. 数据精度与原文一致，不篡改、不四舍五入、不补充原文没有的数字
+5. 事实去重——同一数据只提取一次
+6. 引用片段用 [...] 标注省略，不改变原意
+
+输出格式：
+1. 【事实内容】
+   📍 原文定位：第X段，第Y句
+   📎 原文引用："原文对应片段"
+
+素材原文：
+{source_text}
+```
+
+### 步骤4：选题生成 prompt
+
+```
+你是自媒体选题策划师。请基于以下已提取的核心事实生成创作选题。
+
+配额表：{quotas}
+模式：{mode}
+核心事实列表：
+{facts}
+
+选题规则：
+1. 按配额表 {topics} 条生成选题，不多不少
+2. 每条选题包含4个维度：切入角度、目标受众、内容形式建议、关联事实
+3. 切入角度从六选一：数据冲击/对比反差/因果追溯/影响推演/方法拆解/趋势预判
+4. 目标受众从五选一：行业从业者/投资者/普通消费者/学习者/媒体创作者
+5. 选题必须提供增量价值——不能只是复述事实，必须提供原文中没有直接阐述的视角
+6. 关联事实编号必须指向已有的事实列表中的编号
+7. 选题标题不可重复
+
+输出格式：
+1. **选题标题**
+   - 切入角度：XXX
+   - 目标受众：XXX
+   - 内容形式建议：XXX
+   - 关联事实：事实#X
+```
+
+### 步骤5：风险扫描 prompt
+
+```
+你是合规审查员。请对以下素材包内容进行风险扫描。
+
+核心事实列表：
+{facts}
+
+风险识别规则（6类）：
+1. 敏感话题：涉及政治、宗教、种族、性别等敏感内容
+2. 未经证实的数据：原文标注"预计""估计""大约""可能"等限定词
+3. 主观观点：含"我认为""应该""最好""必须"等主观判断
+4. 单一来源：数据仅来自一个来源，无交叉验证
+5. 时效风险：数据年份超过2年，可能已过时
+6. 利益相关：内容来源可能与某方利益相关
+
+输出格式（有风险才输出，无则省略整个风险提示模块）：
+⚠️ 风险类型
+   内容：具体风险描述
+   建议：处理建议
+```
+
+---
+
 ## 文件结构
 
 ```
 note-intel/
 ├── SKILL.md                        # 本文档
 ├── DESIGN.md                       # 架构设计文档
+├── config.json                     # 可配置参数（模式阈值/密度权重/配额表）
 ├── references/
 │   ├── extraction-guide.md         # 信息提取指南
 │   ├── topic-formulas.md           # 选题生成公式
 │   └── compliance-rules.md         # 合规规则
 ├── scripts/
 │   ├── analyze_material.py         # 输入处理 + 评估定模（12项密度指标）
+│   ├── extract_candidates.py       # 事实候选提取（标注段落/句子编号+优先级）
+│   ├── scan_risks.py               # 风险扫描（6类风险自动识别）
 │   ├── validate_pack.py            # 素材包校验（11项校验规则）
 │   ├── export_pack.py              # MD + HTML + JSON 导出
 │   ├── score_topics.py             # 选题评分（增量价值/传播潜力/创作难度）
@@ -255,10 +350,12 @@ note-intel/
 ├── assets/
 │   ├── content-pack-template.md    # MD素材包模板
 │   └── preview-template.html       # HTML预览模板（搜索/折叠/关联高亮/打印）
-└── examples/
-    ├── example-concise.md          # 精简模式示例
-    ├── example-standard.md         # 标准模式示例
-    └── example-deep.md             # 深度模式示例
+├── examples/
+│   ├── example-concise.md          # 精简模式示例
+│   ├── example-standard.md         # 标准模式示例
+│   └── example-deep.md             # 深度模式示例
+└── tests/
+    └── test_note_intel.py          # pytest 单元测试
 ```
 
 ---

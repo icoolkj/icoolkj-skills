@@ -1,0 +1,71 @@
+{
+  "mode_thresholds": {
+    "concise_max_words": 800,
+    "standard_max_words": 3000,
+    "boundary_low": 750,
+    "boundary_high": 850,
+    "boundary_standard_low": 2900,
+    "boundary_standard_high": 3100
+  },
+  "density_modifiers": {
+    "upgrade_high": 0.75,
+    "upgrade_mid": 0.6,
+    "downgrade_low": 0.25,
+    "downgrade_mid": 0.35,
+    "upgrade_mid_fact_threshold": 4,
+    "upgrade_mid_diversity_threshold": 3,
+    "downgrade_mid_fact_threshold": 5,
+    "downgrade_mid_diversity_threshold": 2,
+    "downgrade_mid_fact_low": 2,
+    "downgrade_mid_diversity_low": 1
+  },
+  "density_weights": {
+    "fact_count": 0.18,
+    "has_data": 0.08,
+    "has_case": 0.06,
+    "has_method": 0.04,
+    "repeat_ratio": 0.08,
+    "topic_independence": 0.12,
+    "verifiable_conclusions": 0.08,
+    "creation_angles": 0.08,
+    "data_diversity": 0.10,
+    "logic_coherence": 0.06,
+    "viewpoint_balance": 0.06,
+    "info_freshness": 0.06
+  },
+  "density_weight_notes": {
+    "fact_count": "最高权重——事实密度是信息价值的核心指标。纯观点文章（评论/社论）fact_count可能为0，但这类文章通常has_case或has_method为true，通过其他指标补偿",
+    "has_data": "布尔值权重偏低——因为data_diversity（0.10）已经量化了数据丰富度，has_data仅作为存在性补充",
+    "topic_independence": "第二高权重——主题分散度决定了素材能支撑多少独立选题，直接影响创作价值",
+    "data_diversity": "第三高权重——数据类型多样性反映了素材的信息维度丰富度，比单纯的数据存在性更有区分力",
+    "has_method": "最低权重——方法论存在性对大多数资讯类素材不适用，但对教程/指南类素材是关键信号"
+  },
+  "quotas": {
+    "concise": {
+      "summary": 1,
+      "core_facts": "2-4",
+      "topics": "1-2",
+      "quotes": "auto",
+      "risks": "auto"
+    },
+    "standard": {
+      "summary": 1,
+      "core_facts": "4-8",
+      "topics": "3-5",
+      "quotes": "auto",
+      "risks": "auto"
+    },
+    "deep": {
+      "summary": 1,
+      "core_facts": "6-12",
+      "topics": "4-7",
+      "quotes": "auto",
+      "risks": "auto"
+    }
+  },
+  "fact_count_max_for_density": 8,
+  "verifiable_conclusions_max_for_density": 3,
+  "creation_angles_max": 6,
+  "data_diversity_max": 6,
+  "time_risk_threshold_years": 2
+}

@@ -17,6 +17,65 @@ from html.parser import HTMLParser
 from datetime import datetime
 
 
+DEFAULT_CONFIG = {
+    "mode_thresholds": {
+        "concise_max_words": 800,
+        "standard_max_words": 3000,
+        "boundary_low": 750,
+        "boundary_high": 850,
+        "boundary_standard_low": 2900,
+        "boundary_standard_high": 3100
+    },
+    "density_modifiers": {
+        "upgrade_high": 0.75,
+        "upgrade_mid": 0.6,
+        "downgrade_low": 0.25,
+        "downgrade_mid": 0.35,
+        "upgrade_mid_fact_threshold": 4,
+        "upgrade_mid_diversity_threshold": 3,
+        "downgrade_mid_fact_threshold": 5,
+        "downgrade_mid_diversity_threshold": 2,
+        "downgrade_mid_fact_low": 2,
+        "downgrade_mid_diversity_low": 1
+    },
+    "density_weights": {
+        "fact_count": 0.18,
+        "has_data": 0.08,
+        "has_case": 0.06,
+        "has_method": 0.04,
+        "repeat_ratio": 0.08,
+        "topic_independence": 0.12,
+        "verifiable_conclusions": 0.08,
+        "creation_angles": 0.08,
+        "data_diversity": 0.10,
+        "logic_coherence": 0.06,
+        "viewpoint_balance": 0.06,
+        "info_freshness": 0.06
+    },
+    "quotas": {
+        "concise": {"summary": 1, "core_facts": "2-4", "topics": "1-2", "quotes": "auto", "risks": "auto"},
+        "standard": {"summary": 1, "core_facts": "4-8", "topics": "3-5", "quotes": "auto", "risks": "auto"},
+        "deep": {"summary": 1, "core_facts": "6-12", "topics": "4-7", "quotes": "auto", "risks": "auto"}
+    },
+    "fact_count_max_for_density": 8,
+    "verifiable_conclusions_max_for_density": 3,
+    "creation_angles_max": 6,
+    "data_diversity_max": 6
+}
+
+
+def load_config(config_path=None):
+    if config_path and os.path.isfile(config_path):
+        with open(config_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    default_path = os.path.join(script_dir, '..', 'config.json')
+    if os.path.isfile(default_path):
+        with open(default_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return DEFAULT_CONFIG
+
+
 class HTMLTextExtractor(HTMLParser):
     def __init__(self):
         super().__init__()
@@ -307,7 +366,15 @@ def calculate_information_freshness(text):
 # 增强的评估和模式判定
 # ============================================================
 
-def evaluate_density(text, sentences, paragraphs):
+def evaluate_density(text, sentences, paragraphs, config=None):
+    if config is None:
+        config = DEFAULT_CONFIG
+    weights = config["density_weights"]
+    fc_max = config.get("fact_count_max_for_density", 8)
+    vc_max = config.get("verifiable_conclusions_max_for_density", 3)
+    ca_max = config.get("creation_angles_max", 6)
+    dd_max = config.get("data_diversity_max", 6)
+
     fact_count = count_facts(sentences)
     has_data = check_has_data(text)
     has_case = check_has_case(text)
@@ -330,18 +397,18 @@ def evaluate_density(text, sentences, paragraphs):
     )
 
     score = 0.0
-    score += min(fact_count / 8, 1.0) * 0.18
-    score += (1.0 if has_data else 0.0) * 0.08
-    score += (1.0 if has_case else 0.0) * 0.06
-    score += (1.0 if has_method else 0.0) * 0.04
-    score += (1.0 - repeat_ratio) * 0.08
-    score += topic_independence * 0.12
-    score += min(verifiable_conclusions / 3, 1.0) * 0.08
-    score += min(creation_angles / 4, 1.0) * 0.08
-    score += min(data_diversity / 4, 1.0) * 0.10
-    score += logic_coherence * 0.06
-    score += viewpoint_balance * 0.06
-    score += info_freshness * 0.06
+    score += min(fact_count / fc_max, 1.0) * weights["fact_count"]
+    score += (1.0 if has_data else 0.0) * weights["has_data"]
+    score += (1.0 if has_case else 0.0) * weights["has_case"]
+    score += (1.0 if has_method else 0.0) * weights["has_method"]
+    score += (1.0 - repeat_ratio) * weights["repeat_ratio"]
+    score += topic_independence * weights["topic_independence"]
+    score += min(verifiable_conclusions / vc_max, 1.0) * weights["verifiable_conclusions"]
+    score += min(creation_angles / 4, 1.0) * weights["creation_angles"]
+    score += min(data_diversity / 4, 1.0) * weights["data_diversity"]
+    score += logic_coherence * weights["logic_coherence"]
+    score += viewpoint_balance * weights["viewpoint_balance"]
+    score += info_freshness * weights["info_freshness"]
 
     density_factors = {
         "fact_count": fact_count,
@@ -363,45 +430,50 @@ def evaluate_density(text, sentences, paragraphs):
     return round(score, 2), density_factors
 
 
-def determine_mode(word_count, density_score, density_factors=None):
-    if word_count < 800:
+def determine_mode(word_count, density_score, density_factors=None, config=None):
+    if config is None:
+        config = DEFAULT_CONFIG
+    mt = config["mode_thresholds"]
+    dm = config["density_modifiers"]
+
+    if word_count < mt["concise_max_words"]:
         initial = "concise"
-    elif word_count <= 3000:
+    elif word_count <= mt["standard_max_words"]:
         initial = "standard"
     else:
         initial = "deep"
 
-    if density_score > 0.75:
+    if density_score > dm["upgrade_high"]:
         if initial == "concise":
             initial = "standard"
         elif initial == "standard":
             initial = "deep"
-    elif density_score > 0.6:
+    elif density_score > dm["upgrade_mid"]:
         if initial == "concise" and density_factors:
-            if (density_factors.get("fact_count", 0) >= 4 or
-                density_factors.get("data_diversity", 0) >= 3):
+            if (density_factors.get("fact_count", 0) >= dm["upgrade_mid_fact_threshold"] or
+                density_factors.get("data_diversity", 0) >= dm["upgrade_mid_diversity_threshold"]):
                 initial = "standard"
-    elif density_score < 0.25:
+    elif density_score < dm["downgrade_low"]:
         if initial == "deep":
             initial = "standard"
         elif initial == "standard":
             initial = "concise"
-    elif density_score < 0.35:
+    elif density_score < dm["downgrade_mid"]:
         if initial == "deep" and density_factors:
-            if (density_factors.get("fact_count", 0) < 5 and
-                density_factors.get("data_diversity", 0) < 2):
+            if (density_factors.get("fact_count", 0) < dm["downgrade_mid_fact_threshold"] and
+                density_factors.get("data_diversity", 0) < dm["downgrade_mid_diversity_threshold"]):
                 initial = "standard"
         if initial == "standard" and density_factors:
-            if (density_factors.get("fact_count", 0) < 2 and
-                density_factors.get("data_diversity", 0) < 1):
+            if (density_factors.get("fact_count", 0) < dm["downgrade_mid_fact_low"] and
+                density_factors.get("data_diversity", 0) < dm["downgrade_mid_diversity_low"]):
                 initial = "concise"
 
-    if word_count >= 750 and word_count <= 850:
+    if mt["boundary_low"] <= word_count <= mt["boundary_high"]:
         if density_score > 0.5:
             initial = "standard"
         elif density_score < 0.3:
             initial = "concise"
-    if word_count >= 2900 and word_count <= 3100:
+    if mt["boundary_standard_low"] <= word_count <= mt["boundary_standard_high"]:
         if density_score < 0.4:
             initial = "standard"
         elif density_score > 0.7:
@@ -410,34 +482,16 @@ def determine_mode(word_count, density_score, density_factors=None):
     return initial
 
 
-def generate_quotas(mode):
-    if mode == "concise":
-        return {
-            "summary": 1,
-            "core_facts": "2-4",
-            "topics": "1-2",
-            "quotes": "auto",
-            "risks": "auto"
-        }
-    elif mode == "standard":
-        return {
-            "summary": 1,
-            "core_facts": "4-8",
-            "topics": "3-5",
-            "quotes": "auto",
-            "risks": "auto"
-        }
-    else:
-        return {
-            "summary": 1,
-            "core_facts": "6-12",
-            "topics": "4-7",
-            "quotes": "auto",
-            "risks": "auto"
-        }
+def generate_quotas(mode, config=None):
+    if config is None:
+        config = DEFAULT_CONFIG
+    return dict(config["quotas"][mode])
 
 
-def analyze(input_source):
+def analyze(input_source, config=None):
+    if config is None:
+        config = load_config()
+
     if input_source.startswith('http://') or input_source.startswith('https://'):
         text, source_type = fetch_url(input_source)
         source = input_source
@@ -454,9 +508,9 @@ def analyze(input_source):
     sentences = split_sentences(text)
     paragraphs = split_paragraphs(text)
 
-    density_score, density_factors = evaluate_density(text, sentences, paragraphs)
-    mode = determine_mode(word_count, density_score, density_factors)
-    quotas = generate_quotas(mode)
+    density_score, density_factors = evaluate_density(text, sentences, paragraphs, config)
+    mode = determine_mode(word_count, density_score, density_factors, config)
+    quotas = generate_quotas(mode, config)
 
     result = {
         "mode": mode,
@@ -477,9 +531,11 @@ def main():
     parser = argparse.ArgumentParser(description="NoteIntel 素材分析器 v0.3")
     parser.add_argument("--input", required=True, help="输入源：URL、文件路径、或文本")
     parser.add_argument("--output", help="输出文件路径（默认输出到stdout）")
+    parser.add_argument("--config", help="配置文件路径（默认读取 ../config.json）")
     args = parser.parse_args()
 
-    result = analyze(args.input)
+    config = load_config(args.config)
+    result = analyze(args.input, config)
 
     output = json.dumps(result, ensure_ascii=False, indent=2)
     if args.output:
