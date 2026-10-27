@@ -70,8 +70,7 @@ def merge_packs(pack_paths):
             related = topic_copy.get("related_facts", "")
             for old_id in sorted(pack_fact_id_map.keys(), reverse=True):
                 new_id = pack_fact_id_map[old_id]
-                related = related.replace(f"事实#{old_id}", f"事实#{new_id}")
-                related = related.replace(f"#{old_id}", f"#{new_id}")
+                related = re.sub(r'#' + str(old_id) + r'(?!\d)', f'#{new_id}', related)
             topic_copy["related_facts"] = related
             all_topics.append(topic_copy)
 

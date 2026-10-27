@@ -18,7 +18,8 @@ OPTIONAL_SECTIONS = ["原文引用", "风险提示"]
 PLACEHOLDER_PATTERN = re.compile(r'\{[a-z_]+\}')
 LOCATION_PATTERN = re.compile(r'📍|原文定位|来源位置|第\d+段')
 QUOTE_PATTERN = re.compile(r'📎|原文引用')
-FACT_REF_PATTERN = re.compile(r'事实#?(\d+)')
+FACT_REF_LINE_PATTERN = re.compile(r'关联事实[：:]\s*(.+)')
+FACT_NUM_PATTERN = re.compile(r'#?(\d+)')
 
 
 def read_file(path):
@@ -152,7 +153,10 @@ def check_topic_fact_references(content):
 
     errors = []
     for i, item in enumerate(topic_items, 1):
-        refs = FACT_REF_PATTERN.findall(item)
+        ref_line = FACT_REF_LINE_PATTERN.search(item)
+        if not ref_line:
+            continue
+        refs = FACT_NUM_PATTERN.findall(ref_line.group(1))
         for ref_num in refs:
             ref_int = int(ref_num)
             if ref_int < 1 or ref_int > fact_count:
