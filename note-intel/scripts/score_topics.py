@@ -17,8 +17,13 @@ MEDIUM_VALUE_ANGLES = ['因果追溯', '影响推演']
 LOW_VALUE_ANGLES = ['方法拆解']
 
 HIGH_SPREAD_AUDIENCES = ['普通消费者', '媒体创作者']
-MEDIUM_SPREAD_AUDIENCES = ['投资者', '行业从业者']
+MEDIUM_SPREAD_AUDIENCES = ['投资者', '决策者', '行业从业者']
 LOW_SPREAD_AUDIENCES = ['学习者', '研究者']
+
+AUDIENCE_ALIASES = {
+    '投资者/决策者': '投资者',
+    '学习者/研究者': '学习者',
+}
 
 HIGH_SPREAD_FORMS = ['短视频', '图文卡片']
 MEDIUM_SPREAD_FORMS = ['图文长文']
@@ -49,6 +54,8 @@ def score_angle(angle):
 
 
 def score_audience(audience):
+    if audience in AUDIENCE_ALIASES:
+        audience = AUDIENCE_ALIASES[audience]
     if audience in HIGH_SPREAD_AUDIENCES:
         return 3, "高传播潜力受众"
     elif audience in MEDIUM_SPREAD_AUDIENCES:

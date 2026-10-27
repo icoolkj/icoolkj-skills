@@ -333,6 +333,8 @@ body {
   </div>
 </div>
 
+<div class="empty-note" id="no-search-result" style="display:none;">未找到匹配的搜索结果</div>
+
 <div class="footer">
   NoteIntel 内容素材包 | 生成时间：{timestamp}
 </div>
@@ -369,21 +371,28 @@ function highlightFact(factId) {
 
 function filterContent() {
   var query = document.getElementById('searchInput').value.toLowerCase().trim();
-  var items = document.querySelectorAll('.fact-item, .topic-item, .quote-item, .risk-item, .summary-box');
+  var items = document.querySelectorAll('.fact-item, .topic-item, .quote-item, .risk-item');
+  var noResultEl = document.getElementById('no-search-result');
   if (!query) {
     items.forEach(function(el) { el.classList.remove('search-hidden'); });
+    if (noResultEl) { noResultEl.style.display = 'none'; }
     return;
   }
+  var matchCount = 0;
   items.forEach(function(el) {
     var text = el.textContent.toLowerCase();
     if (text.indexOf(query) !== -1) {
       el.classList.remove('search-hidden');
+      matchCount++;
       var module = el.closest('.module');
       if (module) { module.classList.remove('collapsed'); }
     } else {
       el.classList.add('search-hidden');
     }
   });
+  if (noResultEl) {
+    noResultEl.style.display = matchCount === 0 ? 'block' : 'none';
+  }
 }
 </script>
 

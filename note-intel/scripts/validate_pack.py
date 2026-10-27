@@ -233,14 +233,19 @@ def check_no_fabricated_data(content, source_text=None):
     fact_items = split_items(facts_section)
     errors = []
     for i, item in enumerate(fact_items, 1):
-        quote_match = re.search(r'📎\s*[""\'「」](.+?)[""\'」」]', item)
+        quote_match = re.search(r'📎.*?["\u201c\u201d\'\u300c\u300d\u300e\u300f](.+?)["\u201c\u201d\'\u300c\u300d\u300e\u300f]', item)
         if quote_match:
             quote_text = quote_match.group(1).strip()
-            if quote_text and quote_text not in source_text:
-                normalized_quote = re.sub(r'[ \t]+', '', quote_text)
-                normalized_source = re.sub(r'[ \t]+', '', source_text)
-                if normalized_quote not in normalized_source:
-                    errors.append(f"事实#{i} 的原文引用在素材中找不到对应内容，可能为虚构")
+            if not quote_text:
+                continue
+            segments = re.split(r'\[.*?\]', quote_text)
+            segments = [s.strip() for s in segments if s.strip()]
+            normalized_source = re.sub(r'[ \t]+', '', source_text)
+            for seg in segments:
+                normalized_seg = re.sub(r'[ \t]+', '', seg)
+                if normalized_seg not in normalized_source:
+                    errors.append(f"事实#{i} 的原文引用片段在素材中找不到对应内容，可能为虚构")
+                    break
 
     return len(errors) == 0, errors
 

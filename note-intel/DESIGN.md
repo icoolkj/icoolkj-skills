@@ -212,7 +212,18 @@ python validate_pack.py --pack <MD文件路径>
     "structure_complete": true,
     "no_placeholders": true,
     "quotes_traceable": true,
-    "facts_within_quota": true
+    "facts_within_quota": true,
+    "topic_has_dimensions": true,
+    "topic_fact_references": true,
+    "summary_length": true,
+    "topic_title_uniqueness": true,
+    "facts_have_quotes": true,
+    "no_fabricated_data": true,
+    "optional_section_content": true,
+    "optional_sections": {
+      "原文引用": true,
+      "风险提示": true
+    }
   }
 }
 ```

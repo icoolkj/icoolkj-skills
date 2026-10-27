@@ -175,7 +175,7 @@ python scripts/export_pack.py --content pack.json --template-md assets/content-p
 python scripts/validate_pack.py --pack output/content-pack.md --quotas analysis.json --source original_text.txt
 ```
 
-校验项（12项）：
+校验项（11项）：
 - 结构完整性（必需模块齐全）
 - 占位符残留（无 `{xxx}` 残留）
 - 引用可追溯（每条事实有原文定位）
@@ -247,7 +247,7 @@ note-intel/
 │   └── compliance-rules.md         # 合规规则
 ├── scripts/
 │   ├── analyze_material.py         # 输入处理 + 评估定模（12项密度指标）
-│   ├── validate_pack.py            # 素材包校验（12项校验规则）
+│   ├── validate_pack.py            # 素材包校验（11项校验规则）
 │   ├── export_pack.py              # MD + HTML + JSON 导出
 │   ├── score_topics.py             # 选题评分（增量价值/传播潜力/创作难度）
 │   ├── merge_packs.py              # 多素材合并（事实去重/编号重映射）
