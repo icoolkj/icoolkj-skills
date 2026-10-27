@@ -245,14 +245,41 @@ def check_no_fabricated_data(content, source_text=None):
                 continue
             segments = re.split(r'\[.*?\]', quote_text)
             segments = [s.strip() for s in segments if s.strip()]
-            normalized_source = re.sub(r'[ \t]+', '', source_text)
+            normalized_source = re.sub(r'[\s\u3000]+', '', source_text)
+            normalized_source = re.sub(r'["\u201c\u201d\'\u300c\u300d\u300e\u300f\uff08\uff09()]', '', normalized_source)
             for seg in segments:
-                normalized_seg = re.sub(r'[ \t]+', '', seg)
-                if normalized_seg not in normalized_source:
+                if not _quote_segment_in_source(seg, normalized_source):
                     errors.append(f"事实#{i} 的原文引用片段在素材中找不到对应内容，可能为虚构")
                     break
 
     return len(errors) == 0, errors
+
+
+def _quote_segment_in_source(seg, normalized_source):
+    sub_parts = re.split(r'[，,。；;！!？?]', seg)
+    sub_parts = [p.strip() for p in sub_parts if p.strip()]
+    if not sub_parts:
+        return True
+    for part in sub_parts:
+        normalized_part = re.sub(r'[\s\u3000]+', '', part)
+        normalized_part = re.sub(r'["\u201c\u201d\'\u300c\u300d\u300e\u300f\uff08\uff09()]', '', normalized_part)
+        if not normalized_part:
+            continue
+        if normalized_part in normalized_source:
+            continue
+        fine_parts = re.split(r'(曾在|创立|的|在|了|和|与|等|为|是|有|从|到|由|向|对|将|被|把|让|使|可|能|会|已|正|也|都|还|只|更|最|不|未|无|非|并|且|但|而|则|即|若|如|虽|因|故|以|此|其|该|某|每|各|另|又|再|应|须|需|想|要|得)', normalized_part)
+        fine_parts = [p for p in fine_parts if p.strip()]
+        if not fine_parts:
+            continue
+        all_fine_found = True
+        for fp in fine_parts:
+            fp = fp.strip()
+            if fp and fp not in normalized_source:
+                all_fine_found = False
+                break
+        if not all_fine_found:
+            return False
+    return True
 
 
 def check_optional_section_content(content):

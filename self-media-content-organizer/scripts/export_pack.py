@@ -33,7 +33,7 @@ def build_facts_html(facts):
         return '<div class="empty-note">无核心事实</div>'
     items = []
     for i, fact in enumerate(facts, 1):
-        content = escape(fact.get("content", ""))
+        content = escape(fact.get("claim", fact.get("content", "")))
         location = escape(fact.get("location", ""))
         quote = escape(fact.get("quote", ""))
         html = f'<div class="fact-item" data-fact-id="{i}" id="fact-{i}">'
@@ -56,9 +56,14 @@ def build_topics_html(topics):
         angle = escape(topic.get("angle", ""))
         audience = escape(topic.get("audience", ""))
         form = escape(topic.get("form", ""))
-        related = escape(topic.get("related_facts", ""))
+        related = topic.get("related_facts", "")
+        if isinstance(related, list):
+            related_str = ", ".join(str(r) for r in related)
+        else:
+            related_str = str(related)
+        related_escaped = escape(related_str)
 
-        related_fact_ids = re.findall(r'(\d+)', related)
+        related_fact_ids = re.findall(r'(\d+)', related_str)
         related_attrs = ' '.join(f'data-related-fact="{fid}"' for fid in related_fact_ids)
 
         html = f'<div class="topic-item" data-topic-id="{i}" {related_attrs}>'
@@ -69,8 +74,8 @@ def build_topics_html(topics):
             html += f'<div class="topic-dim"><span class="topic-dim-label">目标受众</span><span class="topic-dim-value">{audience}</span></div>'
         if form:
             html += f'<div class="topic-dim"><span class="topic-dim-label">内容形式</span><span class="topic-dim-value">{form}</span></div>'
-        if related:
-            related_html = related
+        if related_str:
+            related_html = related_escaped
             for fid in related_fact_ids:
                 related_html = related_html.replace(
                     f'#{fid}', f'<a href="#fact-{fid}" class="fact-link" onclick="highlightFact({fid})">#{fid}</a>'
@@ -126,7 +131,7 @@ def build_facts_md(facts):
         return "无核心事实"
     lines = []
     for i, fact in enumerate(facts, 1):
-        content = fact.get("content", "")
+        content = fact.get("claim", fact.get("content", ""))
         location = fact.get("location", "")
         quote = fact.get("quote", "")
         line = f"{i}. {content}"
@@ -148,6 +153,10 @@ def build_topics_md(topics):
         audience = topic.get("audience", "")
         form = topic.get("form", "")
         related = topic.get("related_facts", "")
+        if isinstance(related, list):
+            related_str = ", ".join(str(r) for r in related)
+        else:
+            related_str = str(related)
         line = f"{i}. **{title}**"
         if angle:
             line += f"\n   - 切入角度：{angle}"
@@ -155,8 +164,8 @@ def build_topics_md(topics):
             line += f"\n   - 目标受众：{audience}"
         if form:
             line += f"\n   - 内容形式建议：{form}"
-        if related:
-            line += f"\n   - 关联事实：{related}"
+        if related_str:
+            line += f"\n   - 关联事实：{related_str}"
         lines.append(line)
     return '\n'.join(lines)
 
