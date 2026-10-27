@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-NoteIntel - 素材包校验器 v0.3
-校验MD素材包的结构完整性、引用可追溯性、占位符残留、配额合规
-增强：选题-事实关联一致性、摘要长度合理性、选题标题唯一性、事实编号引用有效性
+NoteIntel - 素材包校验器 v1.0
+校验结构、证据链、事实引用、选题关联和弹性配额。
+配额下限是软提示，上限是硬约束，避免为满足数量而虚构内容。
 零额外依赖，仅使用Python标准库
 """
 
@@ -102,22 +102,27 @@ def check_facts_within_quota(content, quotas=None):
     topics_section = extract_section(content, "创作选题")
 
     errors = []
+    warnings = []
 
     if facts_section and quotas.get("core_facts"):
         fact_count = count_items(facts_section)
         quota_range = quotas["core_facts"]
         min_q, max_q = parse_quota_range(quota_range)
-        if fact_count < min_q or fact_count > max_q:
+        if fact_count > max_q:
             errors.append(f"核心事实数量({fact_count})超出配额范围({quota_range})")
+        elif fact_count < min_q:
+            warnings.append(f"核心事实数量({fact_count})低于建议下限({quota_range})；请确认素材证据不足并在limitations说明，不要凑数")
 
     if topics_section and quotas.get("topics"):
         topic_count = count_items(topics_section)
         quota_range = quotas["topics"]
         min_q, max_q = parse_quota_range(quota_range)
-        if topic_count < min_q or topic_count > max_q:
+        if topic_count > max_q:
             errors.append(f"创作选题数量({topic_count})超出配额范围({quota_range})")
+        elif topic_count < min_q:
+            warnings.append(f"创作选题数量({topic_count})低于建议下限({quota_range})；请确认没有更多独立增量角度")
 
-    return len(errors) == 0, errors
+    return len(errors) == 0, errors + warnings
 
 
 def check_topic_has_dimensions(content):
@@ -292,13 +297,17 @@ def validate(pack_path, quotas=None, source_text=None):
     checks["quotes_traceable"] = ok
     all_errors.extend(errors)
 
-    ok, errors = check_facts_within_quota(content, quotas)
+    ok, quota_notes = check_facts_within_quota(content, quotas)
     checks["facts_within_quota"] = ok
-    all_errors.extend(errors)
+    for note in quota_notes:
+        if "超出配额范围" in note:
+            all_errors.append(note)
+        else:
+            all_warnings.append(note)
 
     ok, errors = check_topic_has_dimensions(content)
     checks["topic_has_dimensions"] = ok
-    all_warnings.extend(errors)
+    all_errors.extend(errors)
 
     ok, errors = check_topic_fact_references(content)
     checks["topic_fact_references"] = ok
@@ -314,7 +323,7 @@ def validate(pack_path, quotas=None, source_text=None):
 
     ok, warnings = check_facts_have_quotes(content)
     checks["facts_have_quotes"] = ok
-    all_warnings.extend(warnings)
+    all_errors.extend(warnings)
 
     if source_text:
         ok, errors = check_no_fabricated_data(content, source_text)

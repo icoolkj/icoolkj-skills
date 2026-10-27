@@ -15,6 +15,8 @@
 ## 核心事实
 
 {core_facts}
+{viewpoints_section}
+{inferences_section}
 
 ---
 
@@ -23,3 +25,6 @@
 {topics}
 {quotes_section}
 {risks_section}
+{gaps_section}
+{conflicts_section}
+{next_actions_section}

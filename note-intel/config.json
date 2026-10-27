@@ -63,6 +63,26 @@
       "risks": "auto"
     }
   },
+  "quota_policy": {
+    "min_is_soft": true,
+    "max_is_hard": true,
+    "allow_zero_when_no_evidence": true,
+    "deduplicate_before_counting": true,
+    "never_fill_with_opinions_or_inferences": true
+  },
+  "evidence_policy": {
+    "required_fact_fields": ["id", "claim", "source_ids", "location", "quote", "confidence", "status"],
+    "allowed_fact_status": ["reported", "verified"],
+    "default_status": "reported",
+    "require_source_id": true,
+    "require_quote_for_fact": true
+  },
+  "conflict_policy": {
+    "preserve_all_sources": true,
+    "do_not_average_numbers": true,
+    "do_not_merge_different_scopes": true,
+    "emit_conflict_records": true
+  },
   "fact_count_max_for_density": 8,
   "verifiable_conclusions_max_for_density": 3,
   "creation_angles_max": 6,

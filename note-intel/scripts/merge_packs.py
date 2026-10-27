@@ -12,6 +12,7 @@ import re
 import sys
 import os
 from datetime import datetime
+from difflib import SequenceMatcher
 
 
 def read_json(path):
@@ -43,10 +44,12 @@ def merge_packs(pack_paths):
     all_topics = []
     all_quotes = []
     all_risks = []
+    conflicts = []
     sources = []
     total_word_count = 0
     max_density = 0
 
+    original_topic_count = 0
     for pack_idx, pack in enumerate(packs):
         source = pack.get("source", "")
         sources.append(source)
@@ -54,16 +57,40 @@ def merge_packs(pack_paths):
         max_density = max(max_density, pack.get("density_score", 0))
 
         facts = pack.get("facts", [])
+        original_topic_count += len(pack.get("topics", []))
         pack_fact_id_map = {}
         for old_id, fact in enumerate(facts, 1):
             key = normalize_text(fact.get("content", ""))
             if key in fact_key_to_new_id:
                 pack_fact_id_map[old_id] = fact_key_to_new_id[key]
+                existing = deduped_facts[fact_key_to_new_id[key] - 1]
+                for field in ("source_ids", "locations"):
+                    values = []
+                    for item in (existing.get(field, []), fact.get(field, [])):
+                        values.extend(item if isinstance(item, list) else ([item] if item else []))
+                    if values:
+                        existing[field] = list(dict.fromkeys(values))
+                if fact.get("quote") and fact.get("quote") != existing.get("quote"):
+                    existing.setdefault("alternate_quotes", []).append({
+                        "source_ids": fact.get("source_ids", []), "quote": fact.get("quote"),
+                        "location": fact.get("location", "")})
             else:
                 new_id = len(deduped_facts) + 1
                 fact_key_to_new_id[key] = new_id
                 pack_fact_id_map[old_id] = new_id
                 deduped_facts.append(dict(fact))
+
+        # 相似但未能安全去重的事实不强行合并，保留为冲突候选。
+        for left in facts:
+            for right_pack in packs[pack_idx + 1:]:
+                for right in right_pack.get("facts", []):
+                    left_text = normalize_text(left.get("content", left.get("claim", "")))
+                    right_text = normalize_text(right.get("content", right.get("claim", "")))
+                    ratio = SequenceMatcher(None, left_text, right_text).ratio()
+                    if 0.72 <= ratio < 1.0:
+                        conflicts.append({"type": "相似事实待核对", "statements": [left, right],
+                                          "difference": "表述相似但未达到安全去重条件",
+                                          "resolution": "保留并列，发布前核查数字、时间和口径"})
 
         for topic in pack.get("topics", []):
             topic_copy = dict(topic)
@@ -116,11 +143,12 @@ def merge_packs(pack_paths):
         "topics": all_topics,
         "quotes": deduped_quotes,
         "risks": deduped_risks,
+        "conflicts": conflicts,
         "merge_info": {
             "original_pack_count": len(packs),
             "original_fact_count": original_fact_count,
             "deduped_fact_count": len(deduped_facts),
-            "original_topic_count": len(all_topics),
+            "original_topic_count": original_topic_count,
             "original_quote_count": len(all_quotes),
             "deduped_quote_count": len(deduped_quotes),
             "original_risk_count": len(all_risks),

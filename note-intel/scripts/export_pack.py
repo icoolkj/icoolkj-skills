@@ -196,6 +196,29 @@ def build_risks_md(risks):
 # 导出函数
 # ============================================================
 
+def build_optional_md(items, heading_key="text"):
+    """Render extension records without imposing a fixed count."""
+    if not items:
+        return None
+    lines = []
+    for i, item in enumerate(items, 1):
+        if isinstance(item, str):
+            lines.append(f"{i}. {item}")
+            continue
+        text = item.get(heading_key) or item.get("claim") or item.get("question") or item.get("difference") or ""
+        details = []
+        for key, label in (("source_id", "来源"), ("location", "定位"), ("based_on", "依据"),
+                           ("reasoning", "推理"), ("suggested_check", "建议核查"), ("impact", "影响"),
+                           ("resolution", "处理")):
+            value = item.get(key)
+            if value:
+                if isinstance(value, list):
+                    value = ", ".join(map(str, value))
+                details.append(f"   - {label}：{value}")
+        lines.append(f"{i}. {text}" + ("\n" + "\n".join(details) if details else ""))
+    return '\n'.join(lines)
+
+
 def escape_md(text):
     if not text:
         return ""
@@ -212,6 +235,11 @@ def export_md(content_data, template_path, output_path):
     topics = content_data.get("topics", [])
     quotes = content_data.get("quotes", [])
     risks = content_data.get("risks", [])
+    viewpoints = build_optional_md(content_data.get("viewpoints", []))
+    inferences = build_optional_md(content_data.get("inferences", []))
+    gaps = build_optional_md(content_data.get("verification_gaps", []))
+    conflicts = build_optional_md(content_data.get("conflicts", []))
+    next_actions = build_optional_md(content_data.get("next_actions", []))
 
     facts_md = build_facts_md(facts)
     topics_md = build_topics_md(topics)
@@ -237,6 +265,15 @@ def export_md(content_data, template_path, output_path):
     result = result.replace("{topics}", topics_md)
     result = result.replace("{quotes_section}", quotes_section)
     result = result.replace("{risks_section}", risks_section)
+    optional_sections = {
+        "{viewpoints_section}": ("原文观点", viewpoints),
+        "{inferences_section}": ("可标注推断", inferences),
+        "{gaps_section}": ("核查缺口", gaps),
+        "{conflicts_section}": ("来源冲突", conflicts),
+        "{next_actions_section}": ("下一步动作", next_actions),
+    }
+    for placeholder, (heading, body) in optional_sections.items():
+        result = result.replace(placeholder, f"\n---\n\n## {heading}\n\n{body}" if body else "")
 
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(result)
@@ -244,18 +281,17 @@ def export_md(content_data, template_path, output_path):
 
 
 def export_json(content_data, output_path):
-    export_data = {
-        "source": content_data.get("source", ""),
-        "mode": content_data.get("mode", ""),
-        "word_count": content_data.get("word_count", 0),
-        "density_score": content_data.get("density_score", 0),
-        "timestamp": content_data.get("timestamp", datetime.now().isoformat()),
-        "summary": content_data.get("summary", ""),
-        "facts": content_data.get("facts", []),
-        "topics": content_data.get("topics", []),
-        "quotes": content_data.get("quotes", []),
-        "risks": content_data.get("risks", [])
-    }
+    # JSON 是可继续创作和复核的事实源：保留未知扩展字段，避免导出时丢失证据链。
+    export_data = dict(content_data)
+    export_data.setdefault("schema_version", "1.0")
+    export_data.setdefault("timestamp", datetime.now().isoformat())
+    for key, default in {
+        "source": "", "mode": "", "word_count": 0, "density_score": 0,
+        "summary": "", "facts": [], "topics": [], "quotes": [], "risks": [],
+        "sources": [], "viewpoints": [], "inferences": [],
+        "verification_gaps": [], "conflicts": [], "next_actions": []
+    }.items():
+        export_data.setdefault(key, default)
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(export_data, f, ensure_ascii=False, indent=2)
     return output_path
