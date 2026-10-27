@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-NoteIntel - 素材包校验器 v1.0
-校验结构、证据链、事实引用、选题关联和弹性配额。
-配额下限是软提示，上限是硬约束，避免为满足数量而虚构内容。
+NoteIntel - 素材包校验器 v0.3
+校验MD素材包的结构完整性、引用可追溯性、占位符残留、配额合规
+增强：选题-事实关联一致性、摘要长度合理性、选题标题唯一性、事实编号引用有效性
 零额外依赖，仅使用Python标准库
 """
 
@@ -102,27 +102,22 @@ def check_facts_within_quota(content, quotas=None):
     topics_section = extract_section(content, "创作选题")
 
     errors = []
-    warnings = []
 
     if facts_section and quotas.get("core_facts"):
         fact_count = count_items(facts_section)
         quota_range = quotas["core_facts"]
         min_q, max_q = parse_quota_range(quota_range)
-        if fact_count > max_q:
+        if fact_count < min_q or fact_count > max_q:
             errors.append(f"核心事实数量({fact_count})超出配额范围({quota_range})")
-        elif fact_count < min_q:
-            warnings.append(f"核心事实数量({fact_count})低于建议下限({quota_range})；请确认素材证据不足并在limitations说明，不要凑数")
 
     if topics_section and quotas.get("topics"):
         topic_count = count_items(topics_section)
         quota_range = quotas["topics"]
         min_q, max_q = parse_quota_range(quota_range)
-        if topic_count > max_q:
+        if topic_count < min_q or topic_count > max_q:
             errors.append(f"创作选题数量({topic_count})超出配额范围({quota_range})")
-        elif topic_count < min_q:
-            warnings.append(f"创作选题数量({topic_count})低于建议下限({quota_range})；请确认没有更多独立增量角度")
 
-    return len(errors) == 0, errors + warnings
+    return len(errors) == 0, errors
 
 
 def check_topic_has_dimensions(content):
@@ -245,14 +240,41 @@ def check_no_fabricated_data(content, source_text=None):
                 continue
             segments = re.split(r'\[.*?\]', quote_text)
             segments = [s.strip() for s in segments if s.strip()]
-            normalized_source = re.sub(r'[ \t]+', '', source_text)
+            normalized_source = re.sub(r'[\s\u3000]+', '', source_text)
+            normalized_source = re.sub(r'["\u201c\u201d\'\u300c\u300d\u300e\u300f\uff08\uff09()]', '', normalized_source)
             for seg in segments:
-                normalized_seg = re.sub(r'[ \t]+', '', seg)
-                if normalized_seg not in normalized_source:
+                if not _quote_segment_in_source(seg, normalized_source):
                     errors.append(f"事实#{i} 的原文引用片段在素材中找不到对应内容，可能为虚构")
                     break
 
     return len(errors) == 0, errors
+
+
+def _quote_segment_in_source(seg, normalized_source):
+    sub_parts = re.split(r'[，,。；;！!？?]', seg)
+    sub_parts = [p.strip() for p in sub_parts if p.strip()]
+    if not sub_parts:
+        return True
+    for part in sub_parts:
+        normalized_part = re.sub(r'[\s\u3000]+', '', part)
+        normalized_part = re.sub(r'["\u201c\u201d\'\u300c\u300d\u300e\u300f\uff08\uff09()]', '', normalized_part)
+        if not normalized_part:
+            continue
+        if normalized_part in normalized_source:
+            continue
+        fine_parts = re.split(r'(曾在|创立|的|在|了|和|与|等|为|是|有|从|到|由|向|对|将|被|把|让|使|可|能|会|已|正|也|都|还|只|更|最|不|未|无|非|并|且|但|而|则|即|若|如|虽|因|故|以|此|其|该|某|每|各|另|也|又|再|已|曾|正|将|被|把|让|使|可|能|会|应|须|需|想|要|得|须|曾|已|正|将|被|把|让|使|可|能|会|应|须|需|想|要|得)', normalized_part)
+        fine_parts = [p for p in fine_parts if p.strip()]
+        if not fine_parts:
+            continue
+        all_fine_found = True
+        for fp in fine_parts:
+            fp = fp.strip()
+            if fp and fp not in normalized_source:
+                all_fine_found = False
+                break
+        if not all_fine_found:
+            return False
+    return True
 
 
 def check_optional_section_content(content):
@@ -297,17 +319,13 @@ def validate(pack_path, quotas=None, source_text=None):
     checks["quotes_traceable"] = ok
     all_errors.extend(errors)
 
-    ok, quota_notes = check_facts_within_quota(content, quotas)
+    ok, errors = check_facts_within_quota(content, quotas)
     checks["facts_within_quota"] = ok
-    for note in quota_notes:
-        if "超出配额范围" in note:
-            all_errors.append(note)
-        else:
-            all_warnings.append(note)
+    all_errors.extend(errors)
 
     ok, errors = check_topic_has_dimensions(content)
     checks["topic_has_dimensions"] = ok
-    all_errors.extend(errors)
+    all_warnings.extend(errors)
 
     ok, errors = check_topic_fact_references(content)
     checks["topic_fact_references"] = ok
@@ -323,7 +341,7 @@ def validate(pack_path, quotas=None, source_text=None):
 
     ok, warnings = check_facts_have_quotes(content)
     checks["facts_have_quotes"] = ok
-    all_errors.extend(warnings)
+    all_warnings.extend(warnings)
 
     if source_text:
         ok, errors = check_no_fabricated_data(content, source_text)

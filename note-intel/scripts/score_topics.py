@@ -85,11 +85,16 @@ def score_difficulty(form):
     return 2, "未知难度"
 
 
-def score_related_facts(related_str, fact_count):
-    refs = re.findall(r'(\d+)', related_str)
+def score_related_facts(related, fact_count):
+    if isinstance(related, list):
+        refs = [r for r in related if isinstance(r, str) and r.strip()]
+    elif isinstance(related, str):
+        refs = re.findall(r'(\d+)', related)
+    else:
+        refs = []
     if not refs:
         return 1, "无关联事实"
-    unique_refs = set(int(r) for r in refs if int(r) <= fact_count)
+    unique_refs = set(int(re.findall(r'(\d+)', r)[0]) for r in refs if re.findall(r'(\d+)', r) and int(re.findall(r'(\d+)', r)[0]) <= fact_count)
     if len(unique_refs) >= 3:
         return 3, f"关联{len(unique_refs)}条事实，证据充分"
     elif len(unique_refs) >= 1:
