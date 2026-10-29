@@ -35,13 +35,21 @@ description: 自媒体内容整理中台。用于把文章、报告、网页、�
 
 为每份输入建立唯一 `source_id`，记录来源类型、标题/URL/文件名、作者/机构、发布日期、读取时间、完整性和版权可用性。网页正文不完整、付费墙、图片文字无法读取、扫描件OCR不可靠时，显式记录限制，不猜测缺失内容。
 
-对 URL、文件或粘贴文本运行：
+对 URL、文件或粘贴文本运行。推荐使用统一入口，不要手动衔接中间文件：
+
+```bash
+python scripts/run_pipeline.py --input <URL|文件路径|文本> --output-dir ./pipeline-output
+```
+
+流水线按顺序保存 `analysis.json`、`clean_text.txt`、`candidates.json`、`risks.json` 和 `pipeline.json`，汇总每一步的 `success/failed/awaiting_input` 状态；分析失败时停止后续步骤，候选与风险步骤失败时保留已完成产物并返回 `partial_failure`。它不会把规则候选自动升级为已核实事实。
+
+输入解析规则：普通文本使用 UTF-8；PDF 使用 `pypdf` 或 `pdftotext`；DOCX 读取文档 XML；PNG/JPEG/TIFF 等图片使用本机 `tesseract` OCR（若未安装则明确失败，不假装完成视觉识别）；网页使用标准库抓取静态 HTML。需要 JavaScript、登录、付费墙或反爬验证的网页会标记不完整或失败，不能把抓取结果当作完整原文。
+
+分析器仍可单独运行，用于只需要分析卡的场景：
 
 ```bash
 python scripts/analyze_material.py --input <URL|文件路径|文本> --output analysis.json
 ```
-
-分析器用于清洗、篇幅、密度和建议配额，不替代逐条原文回看。图片输入要额外登记文件名、页面位置、原始链接、图片类型和是否需要OCR/人工确认。
 
 ## 4. 动态定模与事实底座
 
@@ -55,7 +63,7 @@ python scripts/analyze_material.py --input <URL|文件路径|文本> --output an
 4. 事实不足时，不用观点、推断或重复句子补位。
 5. 每条事实最多支撑 1–2 个明显不同的选题；没有创作增量就不生成选题。
 
-运行候选提取器后逐条回看原文：
+流水线已自动运行候选提取器；若只需单独运行，输入应使用流水线写出的 `clean_text.txt`：
 
 ```bash
 python scripts/extract_candidates.py --input <清洗后文本文件> --quota <事实上限>
@@ -127,10 +135,10 @@ python scripts/extract_candidates.py --input <清洗后文本文件> --quota <�
 
 ## 9. 风险、版权与发布检查
 
-运行：
+流水线已自动运行风险扫描；若只需单独运行，输入应使用流水线写出的 `clean_text.txt`：
 
 ```bash
-python scripts/scan_risks.py --input <清洗后文本文件>
+python scripts/scan_risks.py --input <清洗后文本文件> --source-count 1
 ```
 
 至少识别：预测/未证实、时效、单一来源、利益相关、敏感话题、主观观点、样本/口径缺失、因果过度推断、图片版权未知、AI误导风险。风险不删除事实，只说明发布时如何标注、补证或改写。
@@ -152,6 +160,11 @@ python scripts/scan_risks.py --input <清洗后文本文件>
 推荐 JSON 契约见 `references/pack-schema.md`。扩展后的视觉字段和平台字段见 `references/visual-assets.md` 与 `references/platform-adapters.md`。
 
 ```bash
+python scripts/run_pipeline.py --input <原始资料> --output-dir ./pipeline-output \
+  --pack pack.json --template-md assets/content-pack-template.md \
+  --template-html assets/preview-template.html --formats md,html,json
+
+# 也可单独执行以下门禁：
 python scripts/export_pack.py --content pack.json \
   --template-md assets/content-pack-template.md \
   --template-html assets/preview-template.html \
@@ -161,10 +174,11 @@ python scripts/validate_pack.py --pack output/content-pack.md \
   --quotas analysis.json --source original_text.txt
 ```
 
-多素材先分别建立事实底座，再合并：
+多素材先分别建立事实底座，再合并。合并器会按 `claim` 去重、重映射事实 ID 和 source_id，支持 `related_facts` 数组；合并后必须重新执行 JSON 校验：
 
 ```bash
 python scripts/merge_packs.py --packs pack_a.json pack_b.json --output merged.json
+python scripts/validate_json_pack.py --pack merged.json
 python scripts/compare_packs.py --pack-a pack_a.json --pack-b pack_b.json
 ```
 

@@ -5,7 +5,7 @@ import json
 import sys
 
 REQUIRED_TOP = ("source", "summary", "facts", "topics")
-FACT_REQUIRED = ("id", "claim", "location", "quote", "confidence", "status")
+FACT_REQUIRED = ("id", "claim", "location", "quote", "confidence", "status", "source_ids")
 ALLOWED_STATUS = {"reported", "verified"}
 ALLOWED_CONFIDENCE = {"high", "medium", "low"}
 
@@ -32,8 +32,10 @@ def validate(data):
             errors.append(f"事实#{i} status 无效: {fact.get('status')}")
         if fact.get("confidence") not in ALLOWED_CONFIDENCE:
             errors.append(f"事实#{i} confidence 无效: {fact.get('confidence')}")
+        if not isinstance(fact.get("source_ids"), list) or not fact.get("source_ids"):
+            errors.append(f"事实#{i} source_ids 必须是非空数组")
         for sid in fact.get("source_ids", []):
-            if sources and sid not in sources:
+            if sid not in sources:
                 errors.append(f"事实#{i} 引用了不存在的 source_id: {sid}")
     for i, topic in enumerate(data.get("topics", []), 1):
         if not isinstance(topic, dict):
@@ -71,8 +73,6 @@ def validate(data):
         for ref in adaptation.get("fact_ids", []):
             if ref not in fact_ids:
                 errors.append(f"平台适配#{i} 引用了不存在的事实: {ref}")
-    if data.get("facts") and not data.get("sources"):
-        warnings.append("存在事实但没有 sources 登记；建议补充来源登记")
     return {"valid": not errors, "errors": errors, "warnings": warnings,
             "counts": {"facts": len(data.get("facts", [])), "topics": len(data.get("topics", [])),
                        "viewpoints": len(data.get("viewpoints", [])), "inferences": len(data.get("inferences", [])),
