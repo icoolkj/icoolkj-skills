@@ -41,7 +41,7 @@ description: 自媒体内容整理中台。用于把文章、报告、网页、�
 python scripts/run_pipeline.py --input <URL|文件路径|文本> --output-dir ./pipeline-output
 ```
 
-流水线按顺序保存 `analysis.json`、`clean_text.txt`、`candidates.json`、`risks.json` 和 `pipeline.json`，汇总每一步的 `success/failed/awaiting_input` 状态；分析失败时停止后续步骤，候选与风险步骤失败时保留已完成产物并返回 `partial_failure`。它不会把规则候选自动升级为已核实事实。
+流水线按顺序保存 `analysis.json`、`clean_text.txt`、`candidates.json`、`risks.json` 和 `pipeline.json`，并将阶段拆开记录：`preprocess`（预处理）、`model_organization`（模型/人工整理）、`topic_planning`（选题策划）、`platform_creation`（平台创作）、`publication_gate`（发布门禁）。每一步都有 `success/failed/awaiting_input/blocked` 状态；分析失败时停止后续步骤，候选与风险步骤失败时保留已完成产物并返回 `partial_failure`。它不会把规则候选自动升级为已核实事实。
 
 输入解析规则：普通文本使用 UTF-8；PDF 使用 `pypdf` 或 `pdftotext`；DOCX 读取文档 XML；PNG/JPEG/TIFF 等图片使用本机 `tesseract` OCR（若未安装则明确失败，不假装完成视觉识别）；网页使用标准库抓取静态 HTML。需要 JavaScript、登录、付费墙或反爬验证的网页会标记不完整或失败，不能把抓取结果当作完整原文。
 
@@ -133,6 +133,12 @@ python scripts/extract_candidates.py --input <清洗后文本文件> --quota <�
 
 精确数字、时间、价格、表格、统计图和长文字优先采用确定性布局或图表路线；概念封面和氛围图才考虑AI生成。生成任何文字图片后，检查关键数字、日期、人名、机构名、单位和来源标注。
 
+视觉与平台记录必须显式写入 `status`：`plan → generated → checked → approved`，失败写 `failed`。只有有真实 `output_path`、事实引用和 `checks.passed=true` 时才能进入 `approved`。使用以下门禁检查，不要把 `card_plan` 或 `generated_visuals` 的存在误认为成品已经生成：
+
+```bash
+python scripts/validate_production_artifacts.py --pack pack.json
+```
+
 ## 9. 风险、版权与发布检查
 
 流水线已自动运行风险扫描；若只需单独运行，输入应使用流水线写出的 `clean_text.txt`：
@@ -179,6 +185,9 @@ python scripts/validate_pack.py --pack output/content-pack.md \
 ```bash
 python scripts/merge_packs.py --packs pack_a.json pack_b.json --output merged.json
 python scripts/validate_json_pack.py --pack merged.json
+
+# 质量评估（真实人工标注集接入后运行）
+python scripts/evaluate_quality.py --gold evaluation/seed_gold.jsonl --predictions predictions.jsonl
 python scripts/compare_packs.py --pack-a pack_a.json --pack-b pack_b.json
 ```
 
@@ -209,6 +218,7 @@ python scripts/compare_packs.py --pack-a pack_a.json --pack-b pack_b.json
 - `references/extraction-guide.md`：事实识别、定位和数据精度。
 - `references/topic-formulas.md`：选题、图文结构和受众匹配。
 - `references/compliance-rules.md`：风险、引用和发布前核查。
+- `references/quality-evaluation.md`：人工标注集格式、双人标注和质量指标。
 - `scripts/`：分析、候选提取、风险扫描、导出、校验、评分、合并和对比。
 
 Python 3.8+，脚本仅使用标准库。Skill 本身不替代平台规则、版权审核、事实核查或法律审核。

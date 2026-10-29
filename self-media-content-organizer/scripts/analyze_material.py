@@ -14,6 +14,7 @@ import os
 import shutil
 import subprocess
 import zipfile
+import tempfile
 from xml.etree import ElementTree
 from collections import Counter
 from urllib import request, parse
@@ -153,7 +154,23 @@ def read_file(path):
                     raise InputReadError(proc.stderr.strip() or "pdftotext 解析失败")
                 text = proc.stdout
             if not text.strip():
-                raise InputReadError("PDF没有可提取文本；这是扫描件时请安装 tesseract 并重试")
+                if not shutil.which('tesseract') or not shutil.which('pdftoppm'):
+                    raise InputReadError("PDF没有可提取文本；扫描件 OCR 依赖缺失（需要 tesseract 与 pdftoppm）")
+                with tempfile.TemporaryDirectory() as work:
+                    prefix = os.path.join(work, 'page')
+                    render = subprocess.run(['pdftoppm', '-png', '-r', '200', path, prefix], capture_output=True, text=True, timeout=120)
+                    if render.returncode:
+                        raise InputReadError(render.stderr.strip() or "扫描件 PDF 渲染失败")
+                    pages = sorted(os.path.join(work, name) for name in os.listdir(work) if name.endswith('.png'))
+                    chunks = []
+                    for page in pages:
+                        ocr = subprocess.run(['tesseract', page, 'stdout', '-l', 'chi_sim+eng'], capture_output=True, text=True, timeout=120)
+                        if ocr.returncode == 0 and ocr.stdout.strip():
+                            chunks.append(ocr.stdout)
+                    text = '\n\n'.join(chunks)
+                    if not text.strip():
+                        raise InputReadError("扫描件 PDF OCR 未识别到文字；请人工确认")
+                    return text, 'pdf_scanned', {"completeness": "partial", "parser": "pdftoppm+tesseract", "needs_review": True}
             return text, 'pdf', {"completeness": "full", "parser": "pypdf/pdftotext"}
         if ext == '.docx':
             with zipfile.ZipFile(path) as archive:

@@ -73,10 +73,10 @@ def run_pipeline(input_source, output_dir, config_path=None, pack_path=None,
             handle.write(analysis["clean_text"])
         analysis_path = os.path.join(output_dir, "analysis.json")
         write_json(analysis_path, analysis)
-        step("analyze", "success", [analysis_path, clean_path],
+        step("preprocess", "success", [analysis_path, clean_path],
              warning="；".join(analysis.get("limitations", [])) or None)
     except Exception as exc:
-        step("analyze", "failed", error=exc)
+        step("preprocess", "failed", error=exc)
         manifest["status"] = "failed"
         manifest["finished_at"] = datetime.now().isoformat()
         write_json(os.path.join(output_dir, "pipeline.json"), manifest)
@@ -108,7 +108,12 @@ def run_pipeline(input_source, output_dir, config_path=None, pack_path=None,
     except Exception as exc:
         step("scan_risks", "failed", error=exc)
 
-    if pack_path:
+    if not pack_path:
+        step("model_organization", "awaiting_input", warning="需要模型或人工依据 candidates.json 生成 pack.json；规则候选不会自动升级为事实。")
+        step("topic_planning", "blocked", warning="等待通过 JSON 契约的素材包。")
+        step("platform_creation", "blocked", warning="等待用户指定平台和通过校验的事实底座。")
+        step("publication_gate", "blocked", warning="没有素材包，无法执行发布门禁。")
+    else:
         try:
             validate_json_pack = load_module("validate_json_pack")
             with open(pack_path, encoding="utf-8") as handle:
@@ -122,6 +127,12 @@ def run_pipeline(input_source, output_dir, config_path=None, pack_path=None,
                 step("validate_json_pack", "failed", [validation_path],
                      error="; ".join(validation["errors"]))
             if validation["valid"]:
+                step("model_organization", "success", [pack_path])
+                step("topic_planning", "success" if pack.get("topics") else "awaiting_input",
+                     warning=None if pack.get("topics") else "素材包没有选题，需补充选题策划。")
+                adaptations = pack.get("platform_adaptations", [])
+                step("platform_creation", "success" if adaptations else "awaiting_input",
+                     warning=None if adaptations else "未指定平台适配内容；仅完成通用素材包。")
                 export_pack = load_module("export_pack")
                 exported = {}
                 requested = {item.strip() for item in formats.split(",") if item.strip()}
@@ -138,10 +149,14 @@ def run_pipeline(input_source, output_dir, config_path=None, pack_path=None,
                     export_pack.export_json(pack, path)
                     exported["json"] = path
                 step("export", "success", list(exported.values()))
+                step("publication_gate", "success", [validation_path])
+            else:
+                step("model_organization", "failed", warning="素材包结构门禁未通过，停止选题、平台创作和发布导出。")
+                step("topic_planning", "blocked")
+                step("platform_creation", "blocked")
+                step("publication_gate", "blocked")
         except Exception as exc:
             step("validate_or_export", "failed", error=exc)
-    else:
-        step("pack", "awaiting_input", warning="分析产物已完成；提供 --pack 后才执行素材包门禁和导出。")
 
     manifest["source_sha256"] = hashlib.sha256(
         analysis["clean_text"].encode("utf-8")).hexdigest()
