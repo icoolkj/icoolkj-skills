@@ -1,209 +1,204 @@
 #!/usr/bin/env python3
-"""Merge NoteIntel packs while preserving the full supported JSON contract."""
+"""
+NoteIntel - 多素材合并器 v0.3
+合并多个素材包JSON，去重事实，整合选题，合并引用和风险
+增强：正确的事实编号重映射（基于去重后的编号）
+零额外依赖，仅使用Python标准库
+"""
+
 import argparse
-import copy
 import json
 import re
 import sys
+import os
 from datetime import datetime
 from difflib import SequenceMatcher
-
-SUPPORTED_LIST_FIELDS = (
-    "viewpoints", "inferences", "verification_gaps", "topics", "quotes", "risks",
-    "conflicts", "next_actions", "platform_adaptations", "source_images",
-    "derived_visuals", "generated_visuals", "card_plan",
-)
-FACT_REF_KEYS = {"related_facts", "based_on", "fact_ids", "fact_id"}
-SOURCE_REF_KEYS = {"source_ids", "source_id"}
 
 
 def read_json(path):
     try:
-        with open(path, encoding="utf-8") as handle:
-            return json.load(handle)
-    except Exception as exc:
-        print(f"读取文件失败: {path} - {exc}", file=sys.stderr)
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"读取文件失败: {path} - {e}", file=sys.stderr)
         return None
 
 
-def normalize_text(value):
-    return re.sub(r"[ \t\n]+", "", str(value or "")).lower()
-
-
-def as_list(value):
-    if value is None or value == "":
-        return []
-    return value if isinstance(value, list) else [value]
-
-
-def fact_text(fact):
-    return normalize_text(fact.get("claim") or fact.get("content"))
-
-
-def fact_ref_key(value):
-    match = re.fullmatch(r"F?(\d+)", str(value))
-    return int(match.group(1)) if match else value
-
-
-def remap_recursive(value, fact_map, source_map, key=None):
-    if isinstance(value, dict):
-        return {k: remap_recursive(v, fact_map, source_map, k) for k, v in value.items()}
-    if isinstance(value, list):
-        return [remap_recursive(v, fact_map, source_map, key) for v in value]
-    if key in FACT_REF_KEYS:
-        mapped = fact_map.get(value, fact_map.get(fact_ref_key(value), value))
-        return mapped if isinstance(mapped, str) else f"F{mapped}"
-    if key in SOURCE_REF_KEYS:
-        return source_map.get(value, value)
-    return value
-
-
-def normalize_ref_list(value):
-    return [str(item) for item in as_list(value) if item not in (None, "")]
-
-
-def merge_locations(existing, incoming):
-    values = []
-    for value in (existing.get("location"), existing.get("locations"), incoming.get("location"), incoming.get("locations")):
-        values.extend(as_list(value))
-    values = list(dict.fromkeys(str(v) for v in values if v))
-    if values:
-        existing["location"] = values[0]
-        if len(values) > 1:
-            existing["locations"] = values
-    return existing
-
-
-def source_records(pack, pack_idx):
-    raw_sources = [dict(s) for s in pack.get("sources", []) if isinstance(s, dict)]
-    referenced = []
-    for fact in pack.get("facts", []):
-        referenced.extend(normalize_ref_list(fact.get("source_ids")))
-    for field in SUPPORTED_LIST_FIELDS:
-        for item in pack.get(field, []) if isinstance(pack.get(field, []), list) else []:
-            if isinstance(item, dict):
-                referenced.extend(normalize_ref_list(item.get("source_ids")))
-                referenced.extend(normalize_ref_list(item.get("source_id")))
-    old_ids = []
-    for source in raw_sources:
-        old_ids.append(str(source.get("source_id") or f"S{len(old_ids) + 1}"))
-    for sid in referenced:
-        if sid not in old_ids:
-            old_ids.append(sid)
-    if not old_ids and (pack.get("facts") or referenced):
-        old_ids.append("S1")
-    source_map = {old: f"P{pack_idx}_{old}" for old in old_ids}
-    records = []
-    by_id = {str(s.get("source_id")): s for s in raw_sources if s.get("source_id")}
-    for old in old_ids:
-        record = copy.deepcopy(by_id.get(old, {"source_id": old, "type": "unknown",
-                                                "title": "未登记来源", "completeness": "unknown"}))
-        record["source_id"] = source_map[old]
-        records.append(record)
-    return records, source_map
+def normalize_text(text):
+    return re.sub(r'[ \t\n]+', '', text).lower()
 
 
 def merge_packs(pack_paths):
-    packs = [data for path in pack_paths if (data := read_json(path))]
+    packs = []
+    for path in pack_paths:
+        data = read_json(path)
+        if data:
+            packs.append(data)
+
     if not packs:
-        raise ValueError("没有有效的素材包")
+        print("没有有效的素材包", file=sys.stderr)
+        sys.exit(1)
 
-    merged = {"schema_version": "1.0", "source": " + ".join(str(p.get("source", "")) for p in packs),
-              "sources": [], "facts": [], "topics": [], "quotes": [], "risks": [], "conflicts": []}
-    all_fact_by_key, all_lists = {}, {field: [] for field in SUPPORTED_LIST_FIELDS if field not in {"topics", "quotes", "risks", "conflicts"}}
-    all_lists.update({"topics": merged["topics"], "quotes": merged["quotes"], "risks": merged["risks"], "conflicts": merged["conflicts"]})
-    word_count, max_density, original_facts, original_topics = 0, 0, 0, 0
+    deduped_facts = []
+    fact_key_to_new_id = {}
+    fact_id_to_index = {}
+    all_topics = []
+    all_quotes = []
+    all_risks = []
+    all_sources = []
+    conflicts = []
+    total_word_count = 0
+    max_density = 0
 
-    for pack_idx, pack in enumerate(packs, 1):
-        pack_sources, source_map = source_records(pack, pack_idx)
-        merged["sources"].extend(pack_sources)
-        word_count += pack.get("word_count", 0) or 0
-        max_density = max(max_density, pack.get("density_score", 0) or 0)
-        original_facts += len(pack.get("facts", []))
-        original_topics += len(pack.get("topics", []))
-        fact_map = {}
+    original_topic_count = 0
+    for pack_idx, pack in enumerate(packs):
+        total_word_count += pack.get("word_count", 0)
+        max_density = max(max_density, pack.get("density_score", 0))
 
-        for position, raw in enumerate(pack.get("facts", []), 1):
-            fact = copy.deepcopy(raw) if isinstance(raw, dict) else {"claim": str(raw)}
-            old_id = fact.get("id") or f"F{position}"
-            fact = remap_recursive(fact, {}, source_map)
-            if not fact.get("source_ids") and source_map:
-                fact["source_ids"] = [next(iter(source_map.values()))]
-            key = fact_text(fact)
-            if key and key in all_fact_by_key:
-                new_id = all_fact_by_key[key]
-                fact_map[old_id] = new_id
-                existing = merged["facts"][new_id - 1]
-                existing["source_ids"] = list(dict.fromkeys(normalize_ref_list(existing.get("source_ids")) + normalize_ref_list(fact.get("source_ids"))))
-                merge_locations(existing, fact)
-                for field in ("qualifiers", "alternate_quotes"):
-                    values = as_list(existing.get(field)) + as_list(fact.get(field))
+        pack_source_id_map = {}
+        for src in pack.get("sources", []):
+            old_sid = src.get("source_id", "")
+            new_sid = f"P{pack_idx + 1}_{old_sid}"
+            pack_source_id_map[old_sid] = new_sid
+            src_copy = dict(src)
+            src_copy["source_id"] = new_sid
+            all_sources.append(src_copy)
+
+        facts = pack.get("facts", [])
+        original_topic_count += len(pack.get("topics", []))
+        pack_fact_id_map = {}
+        for fact_idx, fact in enumerate(facts, 1):
+            key = normalize_text(fact.get("claim", fact.get("content", "")))
+            fact_copy = dict(fact)
+            fact_copy["source_ids"] = [pack_source_id_map.get(sid, sid)
+                                       for sid in fact.get("source_ids", [])]
+            old_fid = fact.get("id", str(fact_idx))
+
+            if key in fact_key_to_new_id:
+                new_fid = fact_key_to_new_id[key]
+                pack_fact_id_map[old_fid] = new_fid
+                pack_fact_id_map[fact_idx] = new_fid
+                existing = deduped_facts[fact_id_to_index[new_fid]]
+                for field in ("source_ids", "locations"):
+                    values = []
+                    for item in (existing.get(field, []), fact_copy.get(field, [])):
+                        values.extend(item if isinstance(item, list) else ([item] if item else []))
                     if values:
-                        existing[field] = list(dict.fromkeys(json.dumps(v, ensure_ascii=False, sort_keys=True) for v in values))
-                        existing[field] = [json.loads(v) for v in existing[field]]
-                if fact.get("quote") and fact.get("quote") != existing.get("quote"):
-                    existing.setdefault("alternate_quotes", []).append({"source_ids": fact.get("source_ids", []), "quote": fact.get("quote"), "location": fact.get("location", "")})
+                        existing[field] = list(dict.fromkeys(values))
+                if fact_copy.get("quote") and fact_copy.get("quote") != existing.get("quote"):
+                    existing.setdefault("alternate_quotes", []).append({
+                        "source_ids": fact_copy.get("source_ids", []),
+                        "quote": fact_copy.get("quote"),
+                        "location": fact_copy.get("location", "")})
             else:
-                new_id = len(merged["facts"]) + 1
-                fact_map[old_id] = f"F{new_id}"
-                fact["id"] = f"F{new_id}"
-                if key:
-                    all_fact_by_key[key] = new_id
-                merged["facts"].append(fact)
+                new_fid = f"F{len(deduped_facts) + 1}"
+                fact_key_to_new_id[key] = new_fid
+                fact_id_to_index[new_fid] = len(deduped_facts)
+                pack_fact_id_map[old_fid] = new_fid
+                pack_fact_id_map[fact_idx] = new_fid
+                fact_copy["id"] = new_fid
+                deduped_facts.append(fact_copy)
 
-        for left in pack.get("facts", []):
-            for other in packs[pack_idx:]:
-                for right in other.get("facts", []):
-                    left_text, right_text = fact_text(left), fact_text(right)
-                    if left_text and right_text and 0.72 <= SequenceMatcher(None, left_text, right_text).ratio() < 1.0:
-                        merged["conflicts"].append({"type": "相似事实待核对", "statements": [left, right], "difference": "表述相似但未达到安全去重条件", "resolution": "保留并列，发布前核查数字、时间和口径"})
+        for left in facts:
+            for right_pack in packs[pack_idx + 1:]:
+                for right in right_pack.get("facts", []):
+                    left_text = normalize_text(left.get("claim", left.get("content", "")))
+                    right_text = normalize_text(right.get("claim", right.get("content", "")))
+                    ratio = SequenceMatcher(None, left_text, right_text).ratio()
+                    if 0.72 <= ratio < 1.0:
+                        conflicts.append({"type": "相似事实待核对", "statements": [left, right],
+                                          "difference": "表述相似但未达到安全去重条件",
+                                          "resolution": "保留并列，发布前核查数字、时间和口径"})
 
-        for field in SUPPORTED_LIST_FIELDS:
-            values = pack.get(field, [])
-            if not isinstance(values, list):
-                continue
-            target = merged.setdefault(field, [])
-            if field == "facts":
-                continue
-            for value in values:
-                item = remap_recursive(copy.deepcopy(value), fact_map, source_map)
-                if field == "topics" and isinstance(item, dict):
-                    item["related_facts"] = [fact_map.get(ref, fact_map.get(fact_ref_key(ref), ref)) for ref in as_list(item.get("related_facts"))]
-                target.append(item)
+        for topic in pack.get("topics", []):
+            topic_copy = dict(topic)
+            related = topic_copy.get("related_facts", "")
+            if isinstance(related, list):
+                topic_copy["related_facts"] = [pack_fact_id_map.get(ref, ref)
+                                               for ref in related]
+            elif isinstance(related, str):
+                for old_id in sorted(pack_fact_id_map.keys(), key=lambda x: -len(str(x))):
+                    new_id = pack_fact_id_map[old_id]
+                    related = re.sub(r'#' + re.escape(str(old_id)) + r'(?!\d)',
+                                     f'#{new_id}', related)
+                topic_copy["related_facts"] = related
+            all_topics.append(topic_copy)
 
-        # 保留未知顶层字段，列表按记录追加，标量按首个非空值保留。
-        for key, value in pack.items():
-            if key in merged or key in {"facts", "sources", "source", "word_count", "density_score", "timestamp", "merge_info"}:
-                continue
-            if isinstance(value, list):
-                merged.setdefault(key, []).extend(copy.deepcopy(value))
-            elif key not in merged and value not in (None, ""):
-                merged[key] = copy.deepcopy(value)
+        for quote in pack.get("quotes", []):
+            all_quotes.append(dict(quote))
 
-    for field in ("quotes", "risks"):
-        seen, unique = set(), []
-        for item in merged.get(field, []):
-            key = normalize_text(item.get("text", "") if field == "quotes" else item.get("type", "") + item.get("content", "")) if isinstance(item, dict) else normalize_text(item)
-            if key not in seen:
-                seen.add(key); unique.append(item)
-        merged[field] = unique
-    merged.update({"mode": "concise" if word_count < 800 else "standard" if word_count <= 3000 else "deep", "word_count": word_count, "density_score": round(max_density, 2), "timestamp": datetime.now().isoformat(), "summary": f"合并自{len(packs)}个素材包，共{len(merged['facts'])}条事实（去重后），{len(merged.get('topics', []))}条选题。", "merge_info": {"original_pack_count": len(packs), "original_fact_count": original_facts, "deduped_fact_count": len(merged["facts"]), "original_topic_count": original_topics, "deduped_topic_count": len(merged.get("topics", []))}})
+        for risk in pack.get("risks", []):
+            all_risks.append(dict(risk))
+
+    seen_quotes = {}
+    deduped_quotes = []
+    for quote in all_quotes:
+        key = normalize_text(quote.get("text", ""))
+        if key not in seen_quotes:
+            seen_quotes[key] = True
+            deduped_quotes.append(quote)
+
+    seen_risks = {}
+    deduped_risks = []
+    for risk in all_risks:
+        key = normalize_text(risk.get("type", "") + risk.get("content", ""))
+        if key not in seen_risks:
+            seen_risks[key] = True
+            deduped_risks.append(risk)
+
+    if total_word_count < 800:
+        mode = "concise"
+    elif total_word_count <= 3000:
+        mode = "standard"
+    else:
+        mode = "deep"
+
+    original_fact_count = sum(len(p.get("facts", [])) for p in packs)
+
+    merged = {
+        "source": " + ".join(p.get("source", "") for p in packs),
+        "mode": mode,
+        "word_count": total_word_count,
+        "density_score": round(max_density, 2),
+        "timestamp": datetime.now().isoformat(),
+        "summary": f"合并自{len(packs)}个素材包，共{len(deduped_facts)}条事实（去重后），{len(all_topics)}条选题。",
+        "sources": all_sources,
+        "facts": deduped_facts,
+        "topics": all_topics,
+        "quotes": deduped_quotes,
+        "risks": deduped_risks,
+        "conflicts": conflicts,
+        "merge_info": {
+            "original_pack_count": len(packs),
+            "original_fact_count": original_fact_count,
+            "deduped_fact_count": len(deduped_facts),
+            "original_topic_count": original_topic_count,
+            "original_quote_count": len(all_quotes),
+            "deduped_quote_count": len(deduped_quotes),
+            "original_risk_count": len(all_risks),
+            "deduped_risk_count": len(deduped_risks)
+        }
+    }
+
     return merged
 
 
 def main():
-    parser = argparse.ArgumentParser(description="NoteIntel 多素材合并器")
-    parser.add_argument("--packs", required=True, nargs="+")
-    parser.add_argument("--output")
+    parser = argparse.ArgumentParser(description="NoteIntel 多素材合并器 v0.3")
+    parser.add_argument("--packs", required=True, nargs='+', help="多个素材包JSON文件路径")
+    parser.add_argument("--output", help="输出文件路径（默认输出到stdout）")
     args = parser.parse_args()
-    try:
-        result = merge_packs(args.packs)
-        text = json.dumps(result, ensure_ascii=False, indent=2)
-        if args.output:
-            with open(args.output, "w", encoding="utf-8") as handle: handle.write(text)
-            print(f"合并结果已写入: {args.output}", file=sys.stderr)
-        else: print(text)
-    except Exception as exc:
-        print(str(exc), file=sys.stderr); sys.exit(1)
 
-if __name__ == "__main__": main()
+    result = merge_packs(args.packs)
+
+    output = json.dumps(result, ensure_ascii=False, indent=2)
+    if args.output:
+        with open(args.output, 'w', encoding='utf-8') as f:
+            f.write(output)
+        print(f"合并结果已写入: {args.output}", file=sys.stderr)
+    else:
+        print(output)
+
+
+if __name__ == "__main__":
+    main()

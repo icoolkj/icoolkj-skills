@@ -127,7 +127,7 @@ def scan_interest_related(text, sentences, paragraphs):
 
 
 def scan_single_source(text, source_count=1):
-    if source_count != 1:
+    if source_count > 1:
         return []
     return [{
         "type": "单一来源",
@@ -157,7 +157,6 @@ def main():
     parser = argparse.ArgumentParser(description="NoteIntel 风险扫描器")
     parser.add_argument("--input", required=True, help="输入源：文件路径或文本")
     parser.add_argument("--output", help="输出文件路径（默认输出到stdout）")
-    parser.add_argument("--source-count", type=int, default=1, help="文本合并时的独立来源数")
     args = parser.parse_args()
 
     if os.path.isfile(args.input):
@@ -166,7 +165,7 @@ def main():
     else:
         text = args.input
 
-    risks = scan_risks(text, source_count=args.source_count)
+    risks = scan_risks(text)
 
     result = {
         "total_risks": len(risks),

@@ -11,15 +11,15 @@ import json
 import re
 import sys
 import os
-import shutil
-import subprocess
-import zipfile
-import tempfile
-from xml.etree import ElementTree
 from collections import Counter
 from urllib import request, parse
 from html.parser import HTMLParser
 from datetime import datetime
+
+
+class InputReadError(Exception):
+    """Raised when a file cannot be read or contains no extractable text."""
+    pass
 
 
 DEFAULT_CONFIG = {
@@ -114,10 +114,6 @@ class HTMLTextExtractor(HTMLParser):
         return text.strip()
 
 
-class InputReadError(RuntimeError):
-    """Raised when an input exists but cannot be reliably extracted."""
-
-
 def fetch_url(url):
     try:
         req = request.Request(url, headers={
@@ -129,79 +125,93 @@ def fetch_url(url):
             html = raw.decode(encoding, errors='replace')
         extractor = HTMLTextExtractor()
         extractor.feed(html)
-        text = extractor.get_text()
-        if not text:
-            raise InputReadError("网页未提取到正文；可能需要 JavaScript 渲染、登录或人工提供正文")
-        return text, 'url', {"completeness": "partial", "renderer": "standard-library-html"}
+        return extractor.get_text(), 'url', {}
     except Exception as e:
-        raise InputReadError(f"URL抓取失败: {e}") from e
+        print(f"URL抓取失败: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _read_docx(path, raw):
+    import zipfile
+    from xml.etree import ElementTree
+    try:
+        with zipfile.ZipFile(path) as archive:
+            xml_content = archive.read('word/document.xml')
+    except (zipfile.BadZipFile, KeyError) as e:
+        raise InputReadError(f"DOCX解析失败: {e}")
+    root = ElementTree.fromstring(xml_content)
+    ns = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+    texts = [elem.text for elem in root.iter(ns + 't') if elem.text]
+    text = ''.join(texts)
+    if not text.strip():
+        raise InputReadError("没有可提取文本")
+    return text, 'docx', {'parser': 'docx-xml'}
+
+
+def _decode_pdf_stream(stream_data):
+    import base64
+    import zlib
+    data = stream_data
+    if data.endswith(b'~>'):
+        try:
+            trimmed = data[:-2]
+            decoded = base64.a85decode(trimmed)
+            return zlib.decompress(decoded)
+        except Exception:
+            pass
+    try:
+        return zlib.decompress(data)
+    except Exception:
+        pass
+    return data
+
+
+def _read_pdf(path, raw):
+    import base64
+    import zlib
+    text_parts = []
+    has_image = False
+    if b'/Subtype /Image' in raw or b'/Subtype\n/Image' in raw:
+        has_image = True
+    streams = re.findall(b'stream\r?\n(.*?)endstream', raw, re.DOTALL)
+    for stream_data in streams:
+        stream_data = stream_data.rstrip(b'\r\n')
+        decoded = _decode_pdf_stream(stream_data)
+        if b'Tj' not in decoded and b'TJ' not in decoded:
+            continue
+        tj_matches = re.findall(b'\\(([^)]*)\\)\\s*Tj', decoded)
+        tj_arrays = re.findall(b'\\[([^\\]]*)\\]\\s*TJ', decoded)
+        array_texts = []
+        for arr in tj_arrays:
+            array_texts.extend(re.findall(b'\\(([^)]*)\\)', arr))
+        for t in tj_matches + array_texts:
+            try:
+                text_parts.append(t.decode('latin-1'))
+            except Exception:
+                pass
+    text = ' '.join(text_parts).strip()
+    if text:
+        return text, 'pdf', {'parser': 'pdf-stream'}
+    if has_image:
+        raise InputReadError("扫描版PDF需要OCR处理（建议安装tesseract），当前无法提取文本")
+    raise InputReadError("没有可提取文本")
 
 
 def read_file(path):
-    ext = os.path.splitext(path)[1].lower()
     try:
-        if ext == '.pdf':
-            try:
-                from pypdf import PdfReader
-                pages = PdfReader(path).pages
-                text = '\n\n'.join(page.extract_text() or '' for page in pages)
-            except Exception:
-                if not shutil.which('pdftotext'):
-                    raise InputReadError("PDF解析失败：需要 pypdf 或 pdftotext")
-                proc = subprocess.run(['pdftotext', '-enc', 'UTF-8', path, '-'],
-                                      capture_output=True, text=True, timeout=60)
-                if proc.returncode:
-                    raise InputReadError(proc.stderr.strip() or "pdftotext 解析失败")
-                text = proc.stdout
-            if not text.strip():
-                if not shutil.which('tesseract') or not shutil.which('pdftoppm'):
-                    raise InputReadError("PDF没有可提取文本；扫描件 OCR 依赖缺失（需要 tesseract 与 pdftoppm）")
-                with tempfile.TemporaryDirectory() as work:
-                    prefix = os.path.join(work, 'page')
-                    render = subprocess.run(['pdftoppm', '-png', '-r', '200', path, prefix], capture_output=True, text=True, timeout=120)
-                    if render.returncode:
-                        raise InputReadError(render.stderr.strip() or "扫描件 PDF 渲染失败")
-                    pages = sorted(os.path.join(work, name) for name in os.listdir(work) if name.endswith('.png'))
-                    chunks = []
-                    for page in pages:
-                        ocr = subprocess.run(['tesseract', page, 'stdout', '-l', 'chi_sim+eng'], capture_output=True, text=True, timeout=120)
-                        if ocr.returncode == 0 and ocr.stdout.strip():
-                            chunks.append(ocr.stdout)
-                    text = '\n\n'.join(chunks)
-                    if not text.strip():
-                        raise InputReadError("扫描件 PDF OCR 未识别到文字；请人工确认")
-                    return text, 'pdf_scanned', {"completeness": "partial", "parser": "pdftoppm+tesseract", "needs_review": True}
-            return text, 'pdf', {"completeness": "full", "parser": "pypdf/pdftotext"}
-        if ext == '.docx':
-            with zipfile.ZipFile(path) as archive:
-                xml = archive.read('word/document.xml')
-            root = ElementTree.fromstring(xml)
-            ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
-            paragraphs = []
-            for paragraph in root.findall('.//w:p', ns):
-                value = ''.join(node.text or '' for node in paragraph.findall('.//w:t', ns))
-                if value.strip():
-                    paragraphs.append(value)
-            text = '\n\n'.join(paragraphs)
-            if not text.strip():
-                raise InputReadError("DOCX没有可提取正文")
-            return text, 'docx', {"completeness": "partial", "parser": "docx-xml", "note": "未提取嵌入图片中的文字"}
-        if ext in {'.png', '.jpg', '.jpeg', '.webp', '.tif', '.tiff', '.bmp'}:
-            if not shutil.which('tesseract'):
-                raise InputReadError("图片/OCR解析失败：未找到 tesseract；请安装 OCR 引擎或提供图片文字")
-            proc = subprocess.run(['tesseract', path, 'stdout', '-l', 'chi_sim+eng'],
-                                  capture_output=True, text=True, timeout=120)
-            if proc.returncode:
-                raise InputReadError(proc.stderr.strip() or "tesseract OCR失败")
-            if not proc.stdout.strip():
-                raise InputReadError("OCR未识别到文字；请人工确认图片内容")
-            return proc.stdout, 'image', {"completeness": "partial", "parser": "tesseract-ocr", "needs_review": True}
-        with open(path, 'r', encoding='utf-8') as f:
-            return f.read().strip(), 'file', {"completeness": "full", "parser": "utf-8"}
+        with open(path, 'rb') as f:
+            raw = f.read()
     except Exception as e:
-        if isinstance(e, InputReadError):
-            raise
-        raise InputReadError(f"文件读取失败: {e}") from e
+        raise InputReadError(f"文件读取失败: {e}")
+    if raw[:4] == b'%PDF':
+        return _read_pdf(path, raw)
+    if raw[:2] == b'PK':
+        return _read_docx(path, raw)
+    try:
+        text = raw.decode('utf-8').strip()
+        return text, 'file', {}
+    except UnicodeDecodeError:
+        raise InputReadError(f"无法解码文件: {path}")
 
 
 def clean_text(text):
@@ -562,21 +572,17 @@ def analyze(input_source, config=None):
         config = load_config()
 
     if input_source.startswith('http://') or input_source.startswith('https://'):
-        text, source_type, input_metadata = fetch_url(input_source)
+        text, source_type, _ = fetch_url(input_source)
         source = input_source
     elif os.path.isfile(input_source):
-        text, source_type, input_metadata = read_file(input_source)
+        text, source_type, _ = read_file(input_source)
         source = input_source
     else:
-        known_file_exts = {'.txt', '.md', '.html', '.htm', '.pdf', '.docx',
-                           '.png', '.jpg', '.jpeg', '.webp', '.tif', '.tiff', '.bmp'}
-        if (os.path.splitext(input_source)[1].lower() in known_file_exts or
-                (os.path.sep in input_source and '\n' not in input_source)):
-            raise InputReadError(f"输入文件不存在或不可读取: {input_source}")
+        if re.search(r'\.(pdf|docx|doc|txt|md|json|html?)$', input_source, re.IGNORECASE):
+            raise InputReadError(f"文件不存在: {input_source}")
         text = input_source
         source_type = "text"
         source = "用户输入文本"
-        input_metadata = {"completeness": "full", "parser": "direct-text"}
 
     text = clean_text(text)
     word_count = count_words(text)
@@ -592,8 +598,6 @@ def analyze(input_source, config=None):
         "word_count": word_count,
         "source_type": source_type,
         "source": source,
-        "input_metadata": input_metadata,
-        "limitations": ([input_metadata["note"]] if input_metadata.get("note") else []),
         "clean_text": text,
         "density_score": density_score,
         "density_factors": density_factors,
