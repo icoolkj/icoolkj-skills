@@ -1,0 +1,2 @@
+{"id":"seed-001","source":"fixture:textual","facts_supported":["F1"],"topic_pairs_independent":["T1|T2"],"risks_detected":["单一来源"],"notes":"仅用于评估器冒烟测试，不是真实素材基线"}
+{"id":"seed-002","source":"fixture:method","facts_supported":[],"topic_pairs_independent":[],"risks_detected":["主观观点"],"notes":"仅用于评估器冒烟测试，不是真实素材基线"}
