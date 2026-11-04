@@ -66,7 +66,7 @@
 遍历目标目录（递归全部子目录）
   → quick 全部检测
   → 计算文件 SHA256 哈希
-  → 与内置 + references/hashes.json + hash-sources/*.json 合并的哈希库比对
+  → 与内置 + references/hashes.json + references/hash-sources.json 合并的哈希库比对
   → 对脚本文件（JS/PS1/PSM1/VBS/VBE/BAT/CMD/PY/SH/HTA/WSF/WSH/REG）读取内容（上限 5MB）
   → 匹配危险代码模式（含 tag，用于组合语义判定）
   → 对 Office 文档检查 vbaProject.bin / OLE 宏流

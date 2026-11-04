@@ -101,7 +101,7 @@ python scripts/scan.py \
 
 1. **文件名特征检测**：双扩展名（含多段）、可疑命名（强/弱信号）、伪装扩展名
 2. **文件头签名检测**：文件实际类型与扩展名是否匹配（含 .docx/.xlsx/.docm/.xlsm/.jar 映射至 ZIP 签名）
-3. **文件哈希检测**：计算 SHA256，与内置 + `references/hashes.json` + `references/hash-sources/*.json` 合并比对
+3. **文件哈希检测**：计算 SHA256，与内置 + `references/hashes.json` + `references/hash-sources.json` 合并比对
 4. **脚本内容分析**：JS/PS1/PSM1/VBS/VBE/BAT/CMD/PY/SH/HTA/WSF/WSH/REG 中的危险模式
 5. **Office 宏流检测**（standard/deep）：OOXML（docx/xlsx/pptx/docm/xlsm/pptm）查 `vbaProject.bin`；OLE（doc/xls/ppt）解析复合文档流名
 6. **压缩包内容检查**（deep）：ZIP 内部文件名 + 读取每个条目文件头（伪装 EXE/类型不一致）；RAR/7Z 仅提示"依赖外部工具"
@@ -133,7 +133,7 @@ Agent 在呈现报告时：
 ```bash
 python scripts/update_hashes.py --add <sha256> --name "样本名"
 python scripts/update_hashes.py --from-file hashes.txt
-python scripts/update_hashes.py --rebuild   # 合并 references/hash-sources/*.json
+python scripts/update_hashes.py --rebuild   # 合并 references/hash-sources.json（或 hash-sources/ 目录）
 python scripts/update_hashes.py --list
 ```
 
@@ -172,7 +172,7 @@ python scripts/update_hashes.py --list
 | 扫描策略详解 | `references/scan-strategies.md` | 三种策略的检测项、适用场景和性能预期 |
 | 文件类型风险矩阵 | `references/file-type-risk-matrix.md` | 各文件类型的风险等级和检测重点 |
 | 恶意哈希库 | `references/hashes.json` | 可更新的 SHA256 恶意样本库（与内置 fallback 合并） |
-| 哈希源目录 | `references/hash-sources/` | 第三方 JSON 清单，扫描时自动合并 |
+| 哈希源 | `references/hash-sources.json` | 第三方 JSON 清单（平铺单文件，分发兼容；本地也可用 hash-sources/ 目录），扫描时自动合并 |
 | 扫描脚本 | `scripts/scan.py` | 主扫描引擎 |
 | 报告脚本 | `scripts/report.py` | 报告生成器 |
 | 哈希更新脚本 | `scripts/update_hashes.py` | 追加 / 导入 / 重建哈希库 |

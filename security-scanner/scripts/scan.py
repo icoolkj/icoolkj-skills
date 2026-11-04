@@ -1260,9 +1260,9 @@ def _ingest_hash_item(hashes, item, default_name="外部哈希库条目"):
 
 
 def load_malicious_hashes():
-    """合并内置 fallback、hashes.json、hash-sources/*.json。后者覆盖前者。"""
+    """合并内置 fallback、hashes.json、hash-sources.json、hash-sources/*.json。后者覆盖前者。"""
     hashes = dict(DEFAULT_MALICIOUS_HASHES)
-    sources = [REFERENCES_DIR / "hashes.json"]
+    sources = [REFERENCES_DIR / "hashes.json", REFERENCES_DIR / "hash-sources.json"]
     if HASH_SOURCES_DIR.is_dir():
         sources.extend(sorted(HASH_SOURCES_DIR.glob("*.json")))
     for path in sources:

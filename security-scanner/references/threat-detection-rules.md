@@ -6,7 +6,7 @@
 |------|----------|----------|----------|
 | 文件名特征 | quick/standard/deep | 双扩展名、可疑命名、伪装扩展名 | 中 |
 | 文件头签名 | quick/standard/deep | 实际类型与扩展名是否匹配 | 高 |
-| 文件哈希 | standard/deep | SHA256 与已知恶意哈希比对（hashes.json + hash-sources） | 极高 |
+| 文件哈希 | standard/deep | SHA256 与已知恶意哈希比对（hashes.json + hash-sources.json） | 极高 |
 | 脚本内容模式 | standard/deep | 危险代码模式匹配（含组合语义） | 高 |
 | Office 宏流 | standard/deep | OOXML vbaProject.bin / OLE 宏流名 + 自动执行标记 | 高 |
 | 压缩包内容 | deep | ZIP 内部文件名 + 文件头签名（不解压到磁盘） | 中 |
@@ -102,7 +102,7 @@
 扫描启动时加载（后者覆盖前者）：
 1. **内置 fallback**（`scan.py::DEFAULT_MALICIOUS_HASHES`）：真实 EICAR 测试样本
 2. **外置库**（`references/hashes.json`）：与内置合并
-3. **哈希源目录**（`references/hash-sources/*.json`）：第三方清单，扫描时自动合并
+3. **哈希源**（`references/hash-sources.json`，本地可选 `references/hash-sources/*.json`）：第三方清单，扫描时自动合并
 
 内置 EICAR SHA256（真实值）：
 ```
@@ -131,7 +131,7 @@
 用 `scripts/update_hashes.py` 维护：
 - `--add <sha256> --name "..."` 追加单条
 - `--from-file hashes.txt` 导入文本清单（每行一个 SHA256，可用 `#` 注释和 `sha256 名称`）
-- `--rebuild` 把 `hash-sources/*.json` 合并进 `hashes.json`
+- `--rebuild` 把 `hash-sources.json`（及本地 hash-sources/ 目录）合并进 `hashes.json`
 - `--from-url` 仅在用户明确要求时使用；只下载哈希清单，不下载样本
 
 ## 4. 脚本内容模式检测

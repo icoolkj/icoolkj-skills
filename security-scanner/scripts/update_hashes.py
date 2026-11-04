@@ -3,7 +3,7 @@
 Security Scanner - 恶意哈希库维护工具
 
 把用户提供的 SHA256 样本合并进 references/hashes.json，
-或把第三方 JSON 放到 references/hash-sources/ 后重建主库。
+或把第三方 JSON 放到 references/hash-sources.json（或 references/hash-sources/ 目录）后重建主库。
 
 用法:
     python update_hashes.py --add <sha256> [--name 名称] [--desc 说明]
@@ -16,7 +16,7 @@ Security Scanner - 恶意哈希库维护工具
 说明:
     - 默认只写本地文件，不访问网络。
     - --from-url 仅在用户明确要求在线更新时使用；只下载哈希清单，不下载样本。
-    - 扫描时 scan.py 会合并：内置 EICAR + hashes.json + hash-sources/*.json。
+    - 扫描时 scan.py 会合并：内置 EICAR + hashes.json + hash-sources.json + hash-sources/*.json。
 """
 
 from __future__ import annotations
@@ -172,15 +172,20 @@ def items_from_json_obj(obj, default_name="imported"):
 
 def rebuild_from_sources(db):
     incoming = []
+    candidates = []
+    flat = REFERENCES_DIR / "hash-sources.json"
+    if flat.exists():
+        candidates.append(flat)
     if SOURCES_DIR.is_dir():
-        for path in sorted(SOURCES_DIR.glob("*.json")):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    obj = json.load(f)
-            except (OSError, json.JSONDecodeError) as e:
-                print(f"跳过 {path.name}: {e}", file=sys.stderr)
-                continue
-            incoming.extend(items_from_json_obj(obj, default_name=path.stem))
+        candidates.extend(sorted(SOURCES_DIR.glob("*.json")))
+    for path in candidates:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                obj = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"跳过 {path.name}: {e}", file=sys.stderr)
+            continue
+        incoming.extend(items_from_json_obj(obj, default_name=path.stem))
     merged, added, updated = merge_items(db.get("malicious_hashes", []), incoming)
     db["malicious_hashes"] = merged
     db["source"] = "local+hash-sources"
@@ -203,7 +208,7 @@ def main():
     parser.add_argument("--from-file", metavar="PATH", help="从文本/JSON 文件导入")
     parser.add_argument("--from-json", metavar="PATH", help="从 JSON 文件导入（同 --from-file）")
     parser.add_argument("--from-url", metavar="URL", help="从 URL 下载哈希清单（仅哈希，不下载样本）")
-    parser.add_argument("--rebuild", action="store_true", help="合并 hash-sources/*.json 到 hashes.json")
+    parser.add_argument("--rebuild", action="store_true", help="合并 hash-sources.json 与 hash-sources/*.json 到 hashes.json")
     parser.add_argument("--remove", metavar="SHA256", help="删除一条 SHA256")
     parser.add_argument("--list", action="store_true", help="列出当前哈希库")
     args = parser.parse_args()

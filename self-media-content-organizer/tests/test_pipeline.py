@@ -29,14 +29,14 @@ def test_docx_reader(tmp_path):
 
 
 def test_pdf_reader(tmp_path):
-    pdf = ROOT / "tests" / "fixtures" / "text.pdf"
+    pdf = ROOT / "tests" / "text.pdf"
     text, kind, _ = analyze_material.read_file(str(pdf))
     assert "2025" in text
     assert kind == "pdf"
 
 
 def test_empty_pdf_is_explicit_error():
-    pdf = ROOT / "tests" / "fixtures" / "empty.pdf"
+    pdf = ROOT / "tests" / "empty.pdf"
     try:
         analyze_material.read_file(str(pdf))
     except analyze_material.InputReadError as exc:
@@ -46,7 +46,7 @@ def test_empty_pdf_is_explicit_error():
 
 
 def test_scanned_pdf_uses_ocr_or_reports_dependency_boundary():
-    pdf = ROOT / "tests" / "fixtures" / "scanned.pdf"
+    pdf = ROOT / "tests" / "scanned.pdf"
     try:
         text, kind, metadata = analyze_material.read_file(str(pdf))
     except analyze_material.InputReadError as exc:
