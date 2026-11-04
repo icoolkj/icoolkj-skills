@@ -19,18 +19,39 @@ import json
 import os
 import re
 import struct
+import stat
 import sys
 import time
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-TOOL_VERSION = "1.2.0"
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
+SKILL_MD = SCRIPT_DIR.parent / "SKILL.md"
 REFERENCES_DIR = SCRIPT_DIR.parent / "references"
 HASH_SOURCES_DIR = REFERENCES_DIR / "hash-sources"
+
+
+def read_skill_version():
+    """从 SKILL.md 的 YAML frontmatter 读取 version，作为唯一版本来源。
+
+    技能包版本只在 SKILL.md 里维护一处，脚本不再硬编码，避免多处漂移。
+    """
+    try:
+        text = SKILL_MD.read_text(encoding="utf-8-sig")
+    except OSError:
+        return None
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return None
+    match = re.search(r"^version:[ \t]*([0-9]+\.[0-9]+\.[0-9]+[^\s#]*)[ \t\r]*$",
+                      parts[1], re.M)
+    return match.group(1) if match else None
+
+
+TOOL_VERSION = read_skill_version() or "unknown"
 
 # 读取上限
 MAX_SCRIPT_SIZE = 5 * 1024 * 1024
@@ -520,7 +541,7 @@ def inspect_zipfile(zf, prefix="压缩包"):
         return findings
     if len(names) > MAX_ZIP_ENTRIES:
         findings.append({
-            "level": "medium",
+            "level": "low",
             "reason": f"{prefix}内文件过多（{len(names)}），仅检查前 {MAX_ZIP_ENTRIES} 个",
         })
         names = names[:MAX_ZIP_ENTRIES]
@@ -549,13 +570,20 @@ def inspect_zipfile(zf, prefix="压缩包"):
         try:
             info = zf.getinfo(name)
         except KeyError:
+            findings.append({"level": "low", "reason": f"{prefix}条目元数据无法读取: {name}"})
+            continue
+        if info.flag_bits & 0x1:
+            findings.append({"level": "low", "reason": f"{prefix}包含加密条目，无法检查: {name}"})
             continue
         if info.file_size > MAX_ZIP_NEST_BYTES:
+            findings.append({"level": "low",
+                             "reason": f"{prefix}条目超过内部读取限制，跳过: {name}"})
             continue
         try:
             with zf.open(name, "r") as inner:
                 header = inner.read(MAX_HEADER_SIZE)
-        except Exception:
+        except Exception as e:
+            findings.append({"level": "low", "reason": f"{prefix}条目读取失败，未能检查 {name}: {e}"})
             continue
         sig_findings, actual = signature_mismatch_findings(name, header)
         for item in sig_findings:
@@ -576,8 +604,8 @@ def check_archive_content(filepath):
         try:
             with zipfile.ZipFile(filepath, "r") as zf:
                 findings.extend(inspect_zipfile(zf, prefix="压缩包"))
-        except Exception:
-            return findings
+        except (zipfile.BadZipFile, OSError, PermissionError, RuntimeError) as e:
+            findings.append({"level": "low", "reason": f"ZIP 损坏、加密或无法读取，未能检查: {e}"})
     elif ext in (".rar", ".7z"):
         findings.append({"level": "low",
                          "reason": f"{ext} 压缩包内检依赖外部工具，当前未解析"})
@@ -861,7 +889,7 @@ def check_office_macros(filepath):
     if ext in OOXML_EXTS:
         if size > MAX_OFFICE_ZIP_SCAN_BYTES:
             findings.append({
-                "level": "medium",
+                "level": "low",
                 "reason": f"Office 文档过大（{size} 字节），跳过宏流检查",
             })
             return findings
@@ -1052,7 +1080,7 @@ def check_lnk(filepath):
 
 def classify_file(findings):
     if not findings:
-        return "safe", "所有检测维度通过"
+        return "safe", "适用检测项完成，未检出已知风险"
 
     levels = {f["level"] for f in findings}
     if "malicious" in levels or "critical" in levels:
@@ -1081,71 +1109,171 @@ def classify_file(findings):
         return "suspicious", "; ".join(reasons)
 
     reasons = [f["reason"] for f in findings if f["level"] == "low"]
-    return "safe", "; ".join(reasons) if reasons else "所有检测维度通过"
+    return "safe", "; ".join(reasons) if reasons else "适用检测项完成，未检出已知风险"
+
+
+
+def _is_reparse_or_symlink(path, st=None):
+    """拒绝符号链接及 Windows reparse point（junction/mount point 等）。"""
+    try:
+        st = st or os.lstat(path)
+    except OSError:
+        return True
+    if os.path.islink(path):
+        return True
+    attrs = getattr(st, "st_file_attributes", 0)
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    return bool(attrs & reparse_flag)
+
+
+def _file_snapshot(path):
+    st = os.stat(path, follow_symlinks=False)
+    if _is_reparse_or_symlink(path, st):
+        raise OSError("拒绝扫描符号链接或 Windows reparse point")
+    if not os.path.isfile(path):
+        raise OSError("目标不是普通文件")
+    return {
+        "size": st.st_size,
+        "mtime_ns": getattr(st, "st_mtime_ns", int(st.st_mtime * 1e9)),
+        "device": getattr(st, "st_dev", None),
+        "inode": getattr(st, "st_ino", None),
+    }
 
 
 def scan_file(filepath, strategy, malicious_hashes):
     result = {
-        "path": filepath,
-        "name": Path(filepath).name,
-        "size": 0,
-        "ext": get_file_ext(filepath),
-        "actual_type": None,
-        "mtime": None,
-        "classification": "safe",
-        "reason": "",
-        "findings": [],
-        "sha256": None,
+        "path": filepath, "name": Path(filepath).name, "size": 0,
+        "ext": get_file_ext(filepath), "actual_type": None, "mtime": None,
+        "classification": "unknown", "result_label": "unknown",
+        "reason": "", "findings": [], "sha256": None,
+        "checks": {}, "coverage": "incomplete",
+        "file_changed_during_scan": False,
     }
-
-    read_errors = []
     try:
-        st = os.stat(filepath)
-        result["size"] = st.st_size
-        result["mtime"] = int(st.st_mtime)
+        before = _file_snapshot(filepath)
+        result["size"] = before["size"]
+        result["mtime"] = int(before["mtime_ns"] / 1e9)
     except (OSError, PermissionError) as e:
         result["classification"] = "unchecked"
-        result["reason"] = f"无法读取文件元数据: {e}"
+        result["reason"] = f"目标无法安全访问: {e}"
+        result["checks"]["path_validation"] = "failed"
         return result
 
+    result["checks"]["path_validation"] = "completed"
     all_findings = []
+    errors = []
 
     all_findings.extend(check_filename_features(filepath))
-
     sig_findings, actual_type, sig_err = check_file_signature(filepath)
     all_findings.extend(sig_findings)
     result["actual_type"] = actual_type
+    result["checks"]["file_signature"] = "failed" if sig_err else "completed"
     if sig_err:
-        read_errors.append(sig_err)
+        errors.append(f"文件头检查失败: {sig_err}")
 
     if strategy in ("standard", "deep"):
         hash_findings, sha, hash_err = check_hash(filepath, malicious_hashes)
         all_findings.extend(hash_findings)
         result["sha256"] = sha
+        result["checks"]["sha256"] = "failed" if hash_err else "completed"
         if hash_err:
-            read_errors.append(hash_err)
+            errors.append(f"哈希计算失败: {hash_err}")
 
-        content_findings, content_err = check_script_content(filepath)
-        all_findings.extend(content_findings)
-        if content_err:
-            read_errors.append(content_err)
+        if result["ext"] in SCRIPT_RULES:
+            content_findings, content_err = check_script_content(filepath)
+            all_findings.extend(content_findings)
+            result["checks"]["script_analysis"] = "failed" if content_err else "completed"
+            if content_err:
+                errors.append(f"脚本内容分析失败: {content_err}")
+        else:
+            result["checks"]["script_analysis"] = "not_applicable"
 
-        all_findings.extend(check_office_macros(filepath))
+        if result["ext"] in OOXML_EXTS or result["ext"] in OLE_OFFICE_EXTS:
+            try:
+                macro_findings = check_office_macros(filepath)
+                all_findings.extend(macro_findings)
+                # 过大文件在函数内会产生明确的跳过 finding，不能冒充完整检查
+                skipped = any("跳过宏流检查" in f.get("reason", "") or
+                              "打开失败" in f.get("reason", "") or
+                              "读取失败" in f.get("reason", "") for f in macro_findings)
+                result["checks"]["office_macro"] = "incomplete" if skipped else "completed"
+                if skipped:
+                    errors.append("Office 宏检查未完整完成")
+            except Exception as e:
+                result["checks"]["office_macro"] = "failed"
+                errors.append(f"Office 宏检查异常: {e}")
+        else:
+            result["checks"]["office_macro"] = "not_applicable"
 
     if strategy == "deep":
-        all_findings.extend(check_archive_content(filepath))
-        all_findings.extend(check_pe_structure(filepath))
-        all_findings.extend(check_lnk(filepath))
+        if result["ext"] in (".zip", ".rar", ".7z"):
+            try:
+                archive_findings = check_archive_content(filepath)
+                all_findings.extend(archive_findings)
+                incomplete_markers = ("仅检查前", "依赖外部工具", "无法检查",
+                                      "加密", "损坏", "超出限制", "跳过")
+                incomplete = any(any(marker in f.get("reason", "") for marker in incomplete_markers)
+                                 for f in archive_findings)
+                result["checks"]["archive"] = "incomplete" if incomplete else "completed"
+                if incomplete:
+                    errors.append("压缩包未能完整检查")
+            except Exception as e:
+                result["checks"]["archive"] = "failed"
+                errors.append(f"压缩包检查异常: {e}")
+        else:
+            result["checks"]["archive"] = "not_applicable"
+
+        if result["ext"] in (".exe", ".dll", ".scr", ".sys", ".cpl", ".com", ".ocx"):
+            try:
+                pe_findings = check_pe_structure(filepath)
+                all_findings.extend(pe_findings)
+                too_large = any("跳过 PE 结构分析" in f.get("reason", "") for f in pe_findings)
+                result["checks"]["pe_analysis"] = "incomplete" if too_large else "completed"
+                if too_large:
+                    errors.append("PE 结构分析因文件大小限制未执行")
+            except Exception as e:
+                result["checks"]["pe_analysis"] = "failed"
+                errors.append(f"PE 分析异常: {e}")
+        else:
+            result["checks"]["pe_analysis"] = "not_applicable"
+
+        if result["ext"] == ".lnk":
+            try:
+                lnk_findings = check_lnk(filepath)
+                all_findings.extend(lnk_findings)
+                result["checks"]["lnk_analysis"] = "completed"
+            except Exception as e:
+                result["checks"]["lnk_analysis"] = "failed"
+                errors.append(f"LNK 分析异常: {e}")
+        else:
+            result["checks"]["lnk_analysis"] = "not_applicable"
+
+    # 扫描前后重新验证文件身份及元数据，发现 TOCTOU 变化则不出具无检出结论
+    try:
+        after = _file_snapshot(filepath)
+        if before != after:
+            result["file_changed_during_scan"] = True
+            errors.append("文件在扫描期间发生变化")
+    except (OSError, PermissionError) as e:
+        errors.append(f"扫描后文件状态验证失败: {e}")
 
     result["findings"] = all_findings
     classification, reason = classify_file(all_findings)
-    result["classification"] = classification
-    result["reason"] = reason
-
-    if classification == "safe" and read_errors and \
-            not sig_findings and result["sha256"] is None:
+    # 规则命中仍保留风险结果；没有明确风险但任一适用检查失败则归为 unknown
+    has_positive_detection = classification in ("malicious", "suspicious")
+    failed_checks = any(v in ("failed", "incomplete") for v in result["checks"].values())
+    if not has_positive_detection and (errors or failed_checks):
         result["classification"] = "unchecked"
-        result["reason"] = "; ".join(read_errors)
+        result["result_label"] = "unknown"
+        result["coverage"] = "incomplete"
+        result["reason"] = "; ".join(errors) or "存在未完成的检测项"
+    else:
+        result["classification"] = classification
+        result["result_label"] = "no_detection" if classification == "safe" else classification
+        result["coverage"] = "complete" if not errors and not failed_checks else "partial"
+        result["reason"] = reason or ("适用检测项完成，未检出已知风险；不代表绝对安全"
+                                      if classification == "safe" else "")
+    result["errors"] = errors
     return result
 
 
@@ -1155,26 +1283,44 @@ def collect_files(target, filter_exts, exclude_patterns):
     def excluded(path):
         return any(p.search(path) for p in compiled)
 
+    target = os.path.abspath(target)
+    if not os.path.lexists(target):
+        raise FileNotFoundError(f"目标路径不存在: {target}")
+    if _is_reparse_or_symlink(target):
+        raise ValueError("拒绝扫描符号链接或 Windows reparse point 目标")
+
     files = []
+    skipped_reparse_points = []
     if os.path.isfile(target):
         if filter_exts is None or get_file_ext(target) in filter_exts:
             files = [target]
-        return files
+        return files, skipped_reparse_points
 
     if not os.path.isdir(target):
-        print(f"错误: 目标路径不存在: {target}", file=sys.stderr)
-        sys.exit(1)
+        raise ValueError(f"目标不是普通文件或目录: {target}")
 
-    for root, dirs, filenames in os.walk(target, followlinks=False):
-        dirs[:] = [d for d in dirs if not excluded(os.path.join(root, d))]
+    for current_root, dirs, filenames in os.walk(target, followlinks=False):
+        kept_dirs = []
+        for dirname in dirs:
+            dpath = os.path.join(current_root, dirname)
+            if excluded(dpath):
+                continue
+            if _is_reparse_or_symlink(dpath):
+                skipped_reparse_points.append(dpath)
+                continue
+            kept_dirs.append(dirname)
+        dirs[:] = kept_dirs
         for filename in filenames:
-            filepath = os.path.join(root, filename)
+            filepath = os.path.join(current_root, filename)
             if excluded(filepath):
+                continue
+            if _is_reparse_or_symlink(filepath):
+                skipped_reparse_points.append(filepath)
                 continue
             ext = get_file_ext(filepath)
             if filter_exts is None or ext in filter_exts:
                 files.append(filepath)
-    return files
+    return sorted(files, key=lambda p: os.path.normcase(p)), sorted(skipped_reparse_points)
 
 
 def run_scan(target, strategy, filter_exts, excludes, jobs, quiet, malicious_hashes):
@@ -1186,8 +1332,15 @@ def run_scan(target, strategy, filter_exts, excludes, jobs, quiet, malicious_has
               file=sys.stderr)
         print(f"排除规则: {len(excludes)} 条", file=sys.stderr)
 
-    files = collect_files(target, filter_exts, excludes)
+    files, skipped_reparse_points = collect_files(target, filter_exts, excludes)
     total = len(files)
+    manifest = []
+    for fp in files:
+        try:
+            snap = _file_snapshot(fp)
+            manifest.append({"path": fp, **snap})
+        except OSError as e:
+            manifest.append({"path": fp, "error": str(e)})
     if not quiet:
         print(f"待扫描文件数: {total}", file=sys.stderr, flush=True)
 
@@ -1195,9 +1348,18 @@ def run_scan(target, strategy, filter_exts, excludes, jobs, quiet, malicious_has
     if jobs <= 1:
         for i, fp in enumerate(files):
             if not quiet:
-                el = time.time() - start
-                print(f"[{i+1}/{total}] ({el:.1f}s) {fp}", file=sys.stderr, flush=True)
-            results[i] = scan_file(fp, strategy, malicious_hashes)
+                print(f"[{i+1}/{total}] {fp}", file=sys.stderr, flush=True)
+            try:
+                results[i] = scan_file(fp, strategy, malicious_hashes)
+            except Exception as e:
+                results[i] = {
+                    "path": fp, "name": Path(fp).name, "size": 0,
+                    "ext": get_file_ext(fp), "actual_type": None, "mtime": None,
+                    "classification": "unchecked", "result_label": "unknown",
+                    "reason": f"扫描异常: {e}", "findings": [], "sha256": None,
+                    "checks": {"execution": "failed"}, "coverage": "incomplete",
+                    "errors": [str(e)], "file_changed_during_scan": False,
+                }
     else:
         with ThreadPoolExecutor(max_workers=jobs) as ex:
             futures = {ex.submit(scan_file, fp, strategy, malicious_hashes): i
@@ -1212,43 +1374,75 @@ def run_scan(target, strategy, filter_exts, excludes, jobs, quiet, malicious_has
                         "path": files[idx], "name": Path(files[idx]).name,
                         "size": 0, "ext": get_file_ext(files[idx]),
                         "actual_type": None, "mtime": None,
-                        "classification": "unchecked",
+                        "classification": "unchecked", "result_label": "unknown",
                         "reason": f"扫描异常: {e}", "findings": [], "sha256": None,
+                        "checks": {"execution": "failed"}, "coverage": "incomplete",
+                        "errors": [str(e)], "file_changed_during_scan": False,
                     }
                 done += 1
                 if not quiet:
-                    el = time.time() - start
-                    print(f"[{done}/{total}] ({el:.1f}s) {files[idx]}",
-                          file=sys.stderr, flush=True)
+                    print(f"[{done}/{total}] {files[idx]}", file=sys.stderr, flush=True)
 
     elapsed = time.time() - start
-    if not quiet:
-        print(f"\n扫描完成! 耗时: {elapsed:.1f}s, 文件数: {total}",
-              file=sys.stderr, flush=True)
-
+    classifications = [r["classification"] for r in results]
     stats = {
         "total": total,
-        "safe": sum(1 for r in results if r["classification"] == "safe"),
-        "suspicious": sum(1 for r in results if r["classification"] == "suspicious"),
-        "malicious": sum(1 for r in results if r["classification"] == "malicious"),
-        "unchecked": sum(1 for r in results if r["classification"] == "unchecked"),
+        "safe": classifications.count("safe"),
+        "no_detection": classifications.count("safe"),
+        "suspicious": classifications.count("suspicious"),
+        "malicious": classifications.count("malicious"),
+        "unchecked": classifications.count("unchecked"),
+        "incomplete": sum(1 for r in results if r.get("coverage") != "complete"),
+        "coverage_complete": sum(1 for r in results if r.get("coverage") == "complete"),
+        "skipped_reparse_points": len(skipped_reparse_points),
         "elapsed": round(elapsed, 2),
     }
+    manifest_after = []
+    for fp in files:
+        try:
+            manifest_after.append({"path": fp, **_file_snapshot(fp)})
+        except OSError as e:
+            manifest_after.append({"path": fp, "error": str(e)})
+    manifest_changed = manifest != manifest_after
+    if manifest_changed:
+        for item in results:
+            if item and item.get("classification") == "safe":
+                item["classification"] = "unchecked"
+                item["result_label"] = "unknown"
+                item["coverage"] = "incomplete"
+                item["reason"] = (item.get("reason", "") + "; 扫描期间目标目录文件清单或文件元数据发生变化").strip("; ")
+                item.setdefault("errors", []).append("扫描期间目标目录文件清单或文件元数据发生变化")
+        classifications = [r["classification"] for r in results]
+        stats.update({
+            "safe": classifications.count("safe"),
+            "no_detection": classifications.count("safe"),
+            "suspicious": classifications.count("suspicious"),
+            "malicious": classifications.count("malicious"),
+            "unchecked": classifications.count("unchecked"),
+            "incomplete": sum(1 for r in results if r.get("coverage") != "complete"),
+            "coverage_complete": sum(1 for r in results if r.get("coverage") == "complete"),
+        })
 
     return {
-        "schema_version": SCHEMA_VERSION,
-        "tool_version": TOOL_VERSION,
+        "schema_version": SCHEMA_VERSION, "tool_version": TOOL_VERSION,
         "scan_info": {
-            "target": target,
-            "strategy": strategy,
+            "task_id": f"scan-{int(start)}-{os.getpid()}",
+            "target": target, "strategy": strategy,
             "filter": sorted(filter_exts) if filter_exts else None,
-            "exclude": excludes,
-            "start_time": start,
-            "elapsed": stats["elapsed"],
-            "total_files": total,
+            "exclude": excludes, "start_time": start,
+            "elapsed": stats["elapsed"], "total_files": total,
+            "manifest_changed": manifest_changed,
+            "manifest_entries": len(manifest),
+            "skipped_reparse_points": len(skipped_reparse_points),
+            "skipped_reparse_point_paths": skipped_reparse_points[:100],
+            "collection_coverage": "incomplete" if skipped_reparse_points else "complete",
         },
-        "stats": stats,
-        "results": results,
+        "stats": stats, "results": results,
+        "limitations": [
+            "no_detection 仅表示本工具当前静态规则及所选策略未检出已知风险，不代表绝对安全",
+            "当前版本未调用 Microsoft Defender 或其他专业杀毒引擎",
+            "扫描清单记录文件元数据，不构成对抗具有本机高权限攻击者的安全边界",
+        ],
     }
 
 
@@ -1309,6 +1503,9 @@ def main():
 
     if args.version:
         print(f"security-scanner {TOOL_VERSION} (schema {SCHEMA_VERSION})")
+        if TOOL_VERSION == "unknown":
+            print(f"警告: 未能从 {SKILL_MD} 读取 version，请确认 SKILL.md 与 scripts/ 同级",
+                  file=sys.stderr)
         return
 
     if not args.target:
@@ -1328,15 +1525,21 @@ def main():
     excludes = list(DEFAULT_EXCLUDE_PATTERNS) + (args.exclude or [])
 
     if args.dry_run:
-        files = collect_files(args.target, filter_exts, excludes)
-        print(f"dry-run: 将扫描 {len(files)} 个文件", file=sys.stderr)
+        try:
+            files, skipped_links = collect_files(args.target, filter_exts, excludes)
+        except (OSError, ValueError) as e:
+            parser.error(str(e))
+        print(f"dry-run: 将扫描 {len(files)} 个文件；跳过链接/reparse point {len(skipped_links)} 个", file=sys.stderr)
         for fp in files:
             print(fp)
         return
 
     malicious_hashes = load_malicious_hashes()
-    output = run_scan(args.target, args.strategy, filter_exts, excludes,
-                      args.jobs, args.quiet, malicious_hashes)
+    try:
+        output = run_scan(args.target, args.strategy, filter_exts, excludes,
+                          args.jobs, args.quiet, malicious_hashes)
+    except (OSError, ValueError) as e:
+        parser.error(str(e))
 
     json_output = json.dumps(output, ensure_ascii=False, indent=2)
     print(json_output)

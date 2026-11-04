@@ -3,21 +3,21 @@ name: security-scanner
 description: |
   本地文件安全查杀工具。扫描用户电脑目录中的文件、文件夹或磁盘，检测潜在恶意文件和可疑脚本。
   支持快速/标准/深度三种扫描策略，按 EXE/DLL/MSI/JS/PS1 等文件类型过滤，实时显示扫描进度，
-  生成安全/可疑/恶意/未能检查四类分类报告。
+  生成未检出/可疑/恶意/未能检查四类分类报告，并标注检测覆盖情况。
   触发词：扫描、查杀、查毒、杀毒、检查病毒、扫描目录、扫描U盘、检查EXE、安全扫描、malware scan、virus scan。
 agent_created: true
-version: 1.0.0
+version: 1.1.0
 display_name: 本地文件安全查杀
 display_name_en: Security Scanner
 description_zh: |
   本地文件安全查杀工具。扫描用户电脑目录中的文件、文件夹或磁盘，检测潜在恶意文件和可疑脚本。
   支持快速/标准/深度三种扫描策略，按 EXE/DLL/MSI/JS/PS1 等文件类型过滤，实时显示扫描进度，
-  生成安全/可疑/恶意/未能检查四类分类报告。
+  生成未检出/可疑/恶意/未能检查四类分类报告，并标注检测覆盖情况。
 description_en: |
   A local file security scanning tool. Scans files, folders or disks on the user machine to detect
   potential malware and suspicious scripts. Supports quick, standard and deep scanning strategies with
   filtering by file type such as EXE, DLL, MSI, JS and PS1, shows live scanning progress, and produces a
-  classified report covering safe, suspicious, malicious and unscannable files.
+  classified report covering no-detection, suspicious, malicious and unscannable files, with coverage status.
 allowed-tools: Bash(python:*)
 author: icoolkj
 license: MIT
@@ -25,6 +25,7 @@ metadata:
   homepage: https://icoolkj.com
   email: icoolkj@163.com
   qq: "594047667"
+  icon: assets/icon.png
 ---
 
 # Security Scanner：本地文件安全查杀工具
@@ -35,10 +36,13 @@ metadata:
 
 1. **只检测不清除**：本工具仅扫描和报告，不删除、不隔离、不修改任何文件。
 2. **多维度检测**：结合文件哈希、文件头签名、脚本内容模式、文件名特征、PE 导入表等多维度判断。
-3. **分类清晰**：每个文件归类为安全、可疑、恶意或未能检查，附带具体原因。
-4. **进度可见**：扫描过程中实时输出已扫描文件数、耗时和当前目标。
-5. **策略可选**：快速/标准/深度三种策略，适配不同场景和时间预算。
-6. **全策略递归**：三档策略均递归子目录，差异仅在检测深度。
+3. **分类清晰**：每个文件归类为未检出、可疑、恶意或未能检查，附带具体原因；“未检出”不代表绝对安全。
+4. **覆盖率透明**：逐项记录文件头、哈希、脚本、Office、压缩包、PE、LNK 检查状态；失败或未完整执行时不得给出无风险结论。
+5. **路径安全**：拒绝符号链接和 Windows reparse point；扫描前后核对文件元数据，发现变化时标记未完整。
+6. **压缩包透明**：超出条目/大小限制、加密、损坏或依赖外部工具的压缩包必须明确标记未完整检查。
+7. **进度可见**：扫描过程中实时输出已扫描文件数、耗时和当前目标。
+8. **策略可选**：快速/标准/深度三种策略，适配不同场景和时间预算。
+9. **全策略递归**：三档策略均递归子目录，差异仅在检测深度。
 
 ## 何时触发
 
@@ -108,6 +112,35 @@ python scripts/scan.py \
 7. **PE 导入表分析**（deep）：真实解析 DOS→PE→OptionalHeader→Section Table→Import Descriptor→Thunk 链，检测进程注入/下载执行组合
 8. **LNK 目标检测**（deep）：校验 Shell Link 签名并检查目标字符串中是否包含 powershell/cmd/mshta/网络路径
 
+#### JSON 结果字段（schema 1.1）
+
+顶层字段：
+
+| 字段 | 说明 |
+|---|---|
+| `schema_version` | 结果结构版本（当前 `1.1`） |
+| `tool_version` | 工具版本，自动读取自 `SKILL.md` 的 `version` 字段，脚本内不再硬编码 |
+| `scan_info` | 本次扫描参数与目录覆盖信息 |
+| `stats` | 分类统计，含 `coverage_complete` / `incomplete` 覆盖计数 |
+| `results` | 逐文件结果数组 |
+| `limitations` | 固定的检测边界说明，呈现结论时应一并转述 |
+
+`scan_info` 关键字段：`task_id`（任务标识）、`manifest_changed`（扫描期间目录清单或元数据是否变化）、`skipped_reparse_points` / `skipped_reparse_point_paths`（被跳过的链接节点数与路径，上限 100 条）、`collection_coverage`（`complete` / `incomplete`）。
+
+每个文件结果：
+
+| 字段 | 说明 |
+|---|---|
+| `classification` | 内部枚举：`safe` / `suspicious` / `malicious` / `unchecked`；`safe` 仅为兼容旧报告保留 |
+| `result_label` | 对外展示标签：`no_detection` / `suspicious` / `malicious` / `unknown` |
+| `coverage` | `complete` / `partial` / `incomplete`，适用检测项的执行完成度 |
+| `checks` | 逐项检测状态：`path_validation` `file_signature` `sha256` `script_analysis` `office_macro` `archive` `pe_analysis` `lnk_analysis`，取值 `completed` / `failed` / `incomplete` / `not_applicable` |
+| `errors` | 检测项未完成的具体原因列表 |
+| `file_changed_during_scan` | 扫描期间文件元数据是否发生变化 |
+| `findings` `reason` `sha256` `size` `mtime` 等 | 含义同旧版 |
+
+解析约定：`result_label` 与 `coverage` 优先于 `classification`；只要 `coverage != complete`，或 `checks` 中存在 `failed` / `incomplete`，就不得对外给出"安全"或"无风险"结论。
+
 ### Phase 3：生成报告
 
 ```bash
@@ -117,7 +150,7 @@ python scripts/report.py --input <结果JSON路径> --format <md|html> --output 
 报告包含五个区域：
 
 1. **扫描概要**：目标、策略、耗时、文件总数
-2. **安全文件**：未发现风险的文件列表（HTML 报告中折叠展示）
+2. **未检出文件**：当前检测范围内未检出已知风险的文件列表（HTML 报告中折叠展示；不代表绝对安全）
 3. **可疑文件**：存在风险特征但无法确认恶意的文件，附带可疑原因
 4. **恶意文件**：高度确信为恶意的文件，附带完整判定依据
 5. **未能检查**：因权限、格式、损坏、超限等原因无法扫描的文件，附带原因
@@ -125,7 +158,7 @@ python scripts/report.py --input <结果JSON路径> --format <md|html> --output 
 Agent 在呈现报告时：
 - 恶意文件优先展示，红色标注，展示全部 findings
 - 可疑文件次优先，黄色标注
-- 安全文件可折叠或摘要展示
+- 未检出文件可折叠或摘要展示，并说明该结论不等于确认文件安全
 - 未能检查文件列出原因，建议用户手动检查
 
 维护哈希库（只写本地，默认不上网）：
@@ -196,3 +229,14 @@ RAR/7Z 内检需外部工具（`unrar` / `7z`），当前版本仅提示"依赖�
 | 许可 | MIT License |
 
 Copyright © 2026 icoolkj.com
+
+
+## V1.1 安全边界与结果解释
+
+- `safe` 是为兼容旧报告保留的内部分类值；新报告应显示为“未检出（非绝对安全）”，并通过 `result_label: no_detection` 表达。
+- `unchecked` 表示至少一个适用检测项失败、未完成或目标文件在扫描期间发生变化。
+- `coverage=complete` 只表示当前策略定义的适用检查项已执行完成，不代表具备专业杀毒软件的检测覆盖率。
+- 当前版本仍是静态特征分析工具，**尚未集成 Microsoft Defender、MCP 或动态行为分析**。
+- ZIP 条目超限、加密、无法读取、条目大小超限，以及 RAR/7Z 未解析，均应视为覆盖不完整。
+- 扫描前后文件元数据变化会触发未完整状态；该检查是风险缓解措施，不是抵御本机高权限攻击者的强安全边界。
+- 不得执行被扫描文件，不得自动删除、隔离或修改文件。

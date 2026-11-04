@@ -59,7 +59,7 @@ def generate_markdown_report(data):
     lines.append("")
     lines.append(f"**生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  ")
     lines.append(f"**工具版本**: {data.get('tool_version', '-')}  ")
-    lines.append(f"**Schema**: {data.get('schema_version', '-')}")
+    lines.append(f"**Schema**: {data.get('schema_version', '-')}  ")
     lines.append("")
 
     lines.append("## 1. 扫描概要")
@@ -72,6 +72,17 @@ def generate_markdown_report(data):
     lines.append(f"| 文件过滤 | {md_text(', '.join(filt)) if filt else '全部类型'} |")
     lines.append(f"| 扫描耗时 | {scan_info['elapsed']} 秒 |")
     lines.append(f"| 文件总数 | {scan_info['total_files']} |")
+    lines.append(f"| 任务 ID | {md_text(scan_info.get('task_id', '-'))} |")
+    lines.append(f"| 完整覆盖文件 | {stats.get('coverage_complete', '-')} |")
+    lines.append(f"| 未完整覆盖文件 | {stats.get('incomplete', '-')} |")
+    lines.append(f"| 扫描清单变化 | {'是' if scan_info.get('manifest_changed') else '否'} |")
+    lines.append(f"| 跳过的链接/reparse point | {scan_info.get('skipped_reparse_points', 0)} |")
+    lines.append(f"| 目录枚举覆盖 | {md_text(scan_info.get('collection_coverage', 'unknown'))} |")
+    lines.append("")
+    if scan_info.get("skipped_reparse_points"):
+        lines.append("> **目录覆盖警告**：为避免跟随符号链接或 Windows reparse point，本次跳过了部分链接节点；这些位置未被扫描。")
+        lines.append("")
+    lines.append("> **结果解释**：报告中的“未检出”仅表示当前策略和已完成的检测项未发现已知风险，不代表文件绝对安全；本工具不是专业杀毒软件。")
     lines.append("")
 
     lines.append("### 扫描统计")
@@ -79,7 +90,7 @@ def generate_markdown_report(data):
     lines.append("| 分类 | 数量 | 占比 |")
     lines.append("|------|------|------|")
     total = stats["total"] if stats["total"] > 0 else 1
-    for key, label in [("safe", "安全"), ("suspicious", "可疑"),
+    for key, label in [("safe", "未检出（非绝对安全）"), ("suspicious", "可疑"),
                        ("malicious", "恶意"), ("unchecked", "未能检查")]:
         lines.append(f"| {label} | {stats[key]} | {stats[key]/total*100:.1f}% |")
     lines.append("")
@@ -105,6 +116,13 @@ def generate_markdown_report(data):
             if r.get("sha256"):
                 lines.append(f"- **SHA256**: {md_code(r['sha256'])}")
             lines.append(f"- **判定原因**: {md_text(r['reason'])}")
+            lines.append(f"- **检测覆盖率**: {md_text(r.get('coverage', 'unknown'))}")
+            if r.get("checks"):
+                lines.append(f"- **检测项状态**: {md_text(json.dumps(r['checks'], ensure_ascii=False))}")
+            if r.get("errors"):
+                lines.append(f"- **未完成原因**: {md_text('; '.join(r['errors']))}")
+            if r.get("file_changed_during_scan"):
+                lines.append("- **文件变化警告**: 文件在扫描期间发生变化")
             lines.append("- **检测详情**:")
             matched_any = False
             for f in r.get("findings", []):
@@ -138,13 +156,13 @@ def generate_markdown_report(data):
             lines.append(f"| {md_text(r['name'])} | {md_code(r['path'])} | {md_text(r['reason'])} |")
         lines.append("")
     else:
-        lines.append("> 所有文件均已完成扫描。")
+        lines.append("> 所有纳入清单的文件均完成当前策略检查（不代表绝对安全）。")
         lines.append("")
 
     lines.append("## 5. 安全文件")
     lines.append("")
     if safe:
-        lines.append(f"> **{len(safe)}** 个文件未发现安全风险。")
+        lines.append(f"> **{len(safe)}** 个文件在当前检测范围内未检出已知风险（不代表绝对安全）。")
         lines.append("")
         if len(safe) <= 50:
             lines.append("| 文件名 | 路径 | 大小 | 修改时间 |")
@@ -160,7 +178,7 @@ def generate_markdown_report(data):
             for r in safe[:50]:
                 lines.append(f"| {md_text(r['name'])} | {md_code(r['path'])} | "
                              f"{format_size(r['size'])} | {format_time(r.get('mtime'))} |")
-            lines.append(f"| ... | 还有 {len(safe) - 50} 个安全文件 | | |")
+            lines.append(f"| ... | 还有 {len(safe) - 50} 个未检出文件 | | |")
         lines.append("")
 
     lines.append("## 6. 处理建议")
@@ -175,7 +193,7 @@ def generate_markdown_report(data):
         lines.append("- **未能检查的文件**: 检查权限、文件完整性；"
                      "对关键目录建议以管理员权限重新扫描。")
     if not (malicious or suspicious or unchecked):
-        lines.append("- 本次扫描未发现安全风险。建议定期重复扫描，保持系统更新。")
+        lines.append("- 当前检测范围内未检出已知风险；这不等同于确认文件安全。建议使用系统杀毒软件进一步检查重要文件。")
     lines.append("")
     lines.append("> **注意**: 本工具仅基于静态特征做初步检测，不等同于专业杀毒软件。"
                  "对于重要系统，建议配合专业安全产品使用。")
@@ -259,6 +277,9 @@ def generate_html_report(data):
              f"| Schema: {esc(data.get('schema_version', '-'))}</p>")
 
     h.append("<h2>1. 扫描概要</h2>")
+    h.append("<p class='notice'>未检出仅表示当前检测范围内未发现已知风险，不代表绝对安全；本工具不是专业杀毒软件。</p>")
+    if scan_info.get("skipped_reparse_points"):
+        h.append("<p class='notice'>目录覆盖警告：本次跳过了符号链接或 Windows reparse point，相关位置未被扫描。</p>")
     h.append("<table>")
     h.append(f"<tr><th>扫描目标</th><td><code>{esc(scan_info['target'])}</code></td></tr>")
     h.append(f"<tr><th>扫描策略</th><td>{esc(scan_info['strategy'])}</td></tr>")
@@ -271,7 +292,7 @@ def generate_html_report(data):
 
     h.append('<div class="stats-grid">')
     for key, cls, label in [
-        ("safe", "safe", "安全"),
+        ("safe", "safe", "未检出"),
         ("suspicious", "suspicious", "可疑"),
         ("malicious", "malicious", "恶意"),
         ("unchecked", "unchecked", "未能检查"),
@@ -328,14 +349,14 @@ def generate_html_report(data):
                      f"<td>{esc(r['reason'])}</td></tr>")
         h.append("</table>")
     else:
-        h.append('<div class="alert-safe">所有文件均已完成扫描。</div>')
+        h.append('<div class="alert-safe">所有纳入清单的文件均完成当前策略检查（不代表绝对安全）。</div>')
 
     h.append("<h2>5. 安全文件</h2>")
     if safe:
-        h.append(f'<div class="alert-safe"><strong>{len(safe)}</strong> 个文件未发现安全风险。</div>')
+        h.append(f'<div class="alert-safe"><strong>{len(safe)}</strong> 个文件在当前检测范围内未检出已知风险（不代表绝对安全）。</div>')
         show = safe[:100]
         h.append("<details>")
-        h.append(f"<summary>展开安全文件列表（共 {len(safe)} 个，展示前 {len(show)} 个）</summary>")
+        h.append(f"<summary>展开未检出文件列表（共 {len(safe)} 个，展示前 {len(show)} 个）</summary>")
         h.append("<table><tr><th>文件名</th><th>路径</th><th>大小</th><th>修改时间</th></tr>")
         for r in show:
             h.append(f"<tr><td>{esc(r['name'])}</td>"
@@ -344,7 +365,7 @@ def generate_html_report(data):
                      f"<td>{format_time(r.get('mtime'))}</td></tr>")
         if len(safe) > len(show):
             h.append(f'<tr><td colspan="4" style="text-align:center">'
-                     f'... 还有 {len(safe) - len(show)} 个安全文件</td></tr>')
+                     f'... 还有 {len(safe) - len(show)} 个未检出文件</td></tr>')
         h.append("</table>")
         h.append("</details>")
     else:
