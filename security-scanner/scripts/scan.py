@@ -42,7 +42,8 @@ FILE_SIGNATURES = {
     "exe_dll": {"sig": b"\x4d\x5a", "offset": 0,
                 "ext": [".exe", ".dll", ".scr", ".sys", ".cpl", ".com", ".ocx"]},
     "zip":     {"sig": b"\x50\x4b\x03\x04", "offset": 0,
-                "ext": [".zip", ".docx", ".xlsx", ".pptx", ".jar", ".apk", ".epub"]},
+                "ext": [".zip", ".docx", ".xlsx", ".pptx", ".docm", ".xlsm",
+                        ".jar", ".apk", ".epub"]},
     "rar":     {"sig": b"\x52\x61\x72\x21", "offset": 0, "ext": [".rar"]},
     "7z":      {"sig": b"\x37\x7a\xbc\xaf\x27\x1c", "offset": 0, "ext": [".7z"]},
     "pdf":     {"sig": b"\x25\x50\x44\x46", "offset": 0, "ext": [".pdf"]},
@@ -67,19 +68,22 @@ for _key, _info in FILE_SIGNATURES.items():
 # 扩展名分类
 # ============================================================
 DANGEROUS_EXTS = {
-    ".exe", ".scr", ".com", ".bat", ".cmd", ".vbs", ".vbe", ".ps1", ".psm1",
-    ".js", ".jse", ".jar", ".msi", ".dll", ".lnk", ".hta", ".wsf", ".wsh",
-    ".msh", ".mshxml", ".reg",
+    ".exe", ".scr", ".com", ".sys", ".cpl", ".ocx",
+    ".bat", ".cmd", ".vbs", ".vbe", ".ps1", ".psm1",
+    ".js", ".jse", ".jar", ".msi", ".dll", ".lnk",
+    ".hta", ".wsf", ".wsh", ".msh", ".mshxml", ".reg",
 }
 
 SAFE_EXTS = {
-    ".txt", ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx",
-    ".xls", ".xlsx", ".mp3", ".mp4", ".avi", ".csv",
+    ".txt", ".jpg", ".jpeg", ".png", ".gif", ".pdf",
+    ".doc", ".docx", ".docm", ".xls", ".xlsx", ".xlsm",
+    ".rtf", ".mp3", ".mp4", ".avi", ".csv",
 }
 
 # 扩展名与真实类型的一致性检查例外（这些组合属于正常行为）
 SIG_EXT_WHITELIST = {
     ("zip", ".docx"), ("zip", ".xlsx"), ("zip", ".pptx"),
+    ("zip", ".docm"), ("zip", ".xlsm"),
     ("zip", ".jar"), ("zip", ".apk"), ("zip", ".epub"),
     ("ole", ".doc"), ("ole", ".xls"), ("ole", ".ppt"), ("ole", ".msi"),
 }
