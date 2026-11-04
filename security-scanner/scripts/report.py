@@ -36,7 +36,6 @@ def format_time(ts):
     return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
 
 
-# ---------- Markdown 转义 ----------
 def md_text(s):
     if s is None:
         return ""
@@ -50,7 +49,6 @@ def md_code(s):
     return f"`{s}`"
 
 
-# ---------- Markdown 报告 ----------
 def generate_markdown_report(data):
     scan_info = data["scan_info"]
     stats = data["stats"]
@@ -185,7 +183,6 @@ def generate_markdown_report(data):
     return "\n".join(lines)
 
 
-# ---------- HTML 报告 ----------
 def esc(s):
     return html.escape(str(s), quote=True) if s is not None else ""
 

@@ -81,7 +81,7 @@ python scripts/scan.py \
 扫描引擎按以下顺序对每个文件执行检测（具体规则见 `references/threat-detection-rules.md`）：
 
 1. **文件名特征检测**：双扩展名（含多段）、可疑命名（强/弱信号）、伪装扩展名
-2. **文件头签名检测**：文件实际类型与扩展名是否匹配（含 .docx/.xlsx/.jar 映射至 ZIP 签名）
+2. **文件头签名检测**：文件实际类型与扩展名是否匹配（含 .docx/.xlsx/.docm/.xlsm/.jar 映射至 ZIP 签名）
 3. **文件哈希检测**：计算 SHA256，与内置 + `references/hashes.json` 合并的哈希库比对
 4. **脚本内容分析**：JS/PS1/PSM1/VBS/VBE/BAT/CMD/PY/SH/HTA/WSF/WSH/REG 中的危险模式
 5. **压缩包内容检查**（deep）：列出 ZIP 内部文件，检查是否有可执行/脚本/双扩展名文件；RAR/7Z 仅提示"依赖外部工具"

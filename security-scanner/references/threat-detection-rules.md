@@ -30,6 +30,9 @@
 - 多段扩展名从右向左扫描，任一危险段 + 末位安全段 → 恶意
 - 危险扩展名集合见 `scan.py::DANGEROUS_EXTS`
 
+危险扩展名集合（与 `scan.py` 一致）：
+`.exe, .scr, .com, .sys, .cpl, .ocx, .bat, .cmd, .vbs, .vbe, .ps1, .psm1, .js, .jse, .jar, .msi, .dll, .lnk, .hta, .wsf, .wsh, .msh, .mshxml, .reg`
+
 ### 1.2 可疑命名模式（强/弱信号）
 
 **强信号**（命中即 suspicious，不限扩展名）：
@@ -62,7 +65,7 @@
 | 文件类型 | 签名（Hex） | 偏移 | 对应扩展名 |
 |----------|-------------|------|------------|
 | EXE/DLL | `4D 5A` (MZ) | 0 | .exe/.dll/.scr/.sys/.cpl/.com/.ocx |
-| ZIP 容器 | `50 4B 03 04` | 0 | .zip/.docx/.xlsx/.pptx/.jar/.apk/.epub |
+| ZIP 容器 | `50 4B 03 04` | 0 | .zip/.docx/.xlsx/.pptx/.docm/.xlsm/.jar/.apk/.epub |
 | RAR | `52 61 72 21` | 0 | .rar |
 | 7Z | `37 7A BC AF 27 1C` | 0 | .7z |
 | PDF | `25 50 44 46` (%PDF) | 0 | .pdf |
@@ -77,7 +80,8 @@
 ### 签名-扩展名白名单
 
 以下组合属于正常行为，不触发"类型不一致"：
-- (zip, .docx) / (zip, .xlsx) / (zip, .pptx) / (zip, .jar) / (zip, .apk) / (zip, .epub)
+- (zip, .docx) / (zip, .xlsx) / (zip, .pptx) / (zip, .docm) / (zip, .xlsm)
+- (zip, .jar) / (zip, .apk) / (zip, .epub)
 - (ole, .doc) / (ole, .xls) / (ole, .ppt) / (ole, .msi)
 
 ### 判定规则
@@ -300,8 +304,8 @@ DOS Header (e_lfanew @ 0x3C)
 
 1. **签名校验**：首 4 字节应为 `4C 00 00 00`（Shell Link Header），否则 suspicious
 2. **目标字符串检查**：读取前 256KB，搜索以下关键词，命中即 suspicious：
-    - `powershell`、`wscript`、`cmd.exe`、`mshta`、`rundll32`、`regsvr32`
-    - `\\`（网络路径，可能是 UNC 横向移动）
+   - `powershell`、`wscript`、`cmd.exe`、`mshta`、`rundll32`、`regsvr32`
+   - `\\`（网络路径，可能是 UNC 横向移动）
 
 ## 综合判定逻辑
 

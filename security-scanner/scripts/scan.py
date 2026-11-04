@@ -31,8 +31,8 @@ SCRIPT_DIR = Path(__file__).parent.resolve()
 REFERENCES_DIR = SCRIPT_DIR.parent / "references"
 
 # 读取上限
-MAX_SCRIPT_SIZE = 5 * 1024 * 1024       # 脚本内容分析上限 5 MB
-MAX_PE_SIZE = 32 * 1024 * 1024           # PE 分析上限 32 MB
+MAX_SCRIPT_SIZE = 5 * 1024 * 1024
+MAX_PE_SIZE = 32 * 1024 * 1024
 MAX_HEADER_SIZE = 1024
 
 # ============================================================
@@ -55,10 +55,9 @@ FILE_SIGNATURES = {
     "elf":     {"sig": b"\x7f\x45\x4c\x46", "offset": 0, "ext": [".elf", ".so"]},
     "lnk":     {"sig": b"\x4c\x00\x00\x00", "offset": 0, "ext": [".lnk"]},
     "rtf":     {"sig": b"{\\rtf", "offset": 0, "ext": [".rtf"]},
-    "hta_sig": {"sig": b"<html", "offset": 0, "ext": []},  # 仅用于 HTA 内容识别
+    "hta_sig": {"sig": b"<html", "offset": 0, "ext": []},
 }
 
-# 扩展名 → 预期签名
 EXT_TO_SIG = {}
 for _key, _info in FILE_SIGNATURES.items():
     for _ext in _info["ext"]:
@@ -80,7 +79,6 @@ SAFE_EXTS = {
     ".rtf", ".mp3", ".mp4", ".avi", ".csv",
 }
 
-# 扩展名与真实类型的一致性检查例外（这些组合属于正常行为）
 SIG_EXT_WHITELIST = {
     ("zip", ".docx"), ("zip", ".xlsx"), ("zip", ".pptx"),
     ("zip", ".docm"), ("zip", ".xlsm"),
@@ -88,9 +86,6 @@ SIG_EXT_WHITELIST = {
     ("ole", ".doc"), ("ole", ".xls"), ("ole", ".ppt"), ("ole", ".msi"),
 }
 
-# ============================================================
-# 可疑命名（分强/弱信号）
-# ============================================================
 STRONG_NAME_KEYWORDS = [
     "crack", "keygen", "injector", "bypass", "keylogger", "ransom",
     "stealer", "backdoor", "rootkit", "trojan", "worm",
@@ -110,17 +105,11 @@ SYSTEM_DIR_PREFIXES = (
     "c:\\windows\\winsxs", "/usr/bin/", "/usr/sbin/", "/bin/", "/sbin/",
 )
 
-# ============================================================
-# 恶意哈希（内置 fallback；真实 EICAR SHA256）
-# ============================================================
 DEFAULT_MALICIOUS_HASHES = {
     "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f":
         "EICAR-Test-File (标准防病毒测试文件)",
 }
 
-# ============================================================
-# 脚本内容规则（带 tag，支持组合语义判定）
-# ============================================================
 SCRIPT_RULES = {
     ".js": [
         {"pattern": r"eval\s*\(\s*atob\s*\(", "level": "high", "tag": "obfuscation",
@@ -259,9 +248,6 @@ SCRIPT_RULES = {
     ],
 }
 
-# ============================================================
-# PE 可疑 API
-# ============================================================
 SUSPICIOUS_PE_APIS = {
     "CreateRemoteThread": "high",
     "VirtualAllocEx": "high",
@@ -281,9 +267,6 @@ SUSPICIOUS_PE_APIS = {
 PROCESS_INJECTION_COMBO = {"CreateRemoteThread", "VirtualAllocEx", "WriteProcessMemory"}
 DOWNLOAD_EXEC_COMBO = {"URLDownloadToFile", "WinExec", "ShellExecute", "ShellExecuteEx"}
 
-# ============================================================
-# 默认排除
-# ============================================================
 DEFAULT_EXCLUDE_PATTERNS = [
     r"[\\/]node_modules[\\/]", r"[\\/]\.git[\\/]", r"[\\/]\.svn[\\/]",
     r"[\\/]Windows[\\/]WinSxS[\\/]", r"[\\/]\$Recycle\.Bin",
@@ -291,9 +274,7 @@ DEFAULT_EXCLUDE_PATTERNS = [
     r"__pycache__", r"[\\/]\.cache[\\/]",
 ]
 
-# ============================================================
-# 工具函数
-# ============================================================
+
 def get_file_ext(filepath):
     return Path(filepath).suffix.lower()
 
@@ -332,7 +313,6 @@ def detect_file_type(header):
 
 
 def read_text_with_fallback(filepath, max_size):
-    """返回 (text, error_reason)。多编码回退。"""
     try:
         size = os.path.getsize(filepath)
     except (OSError, PermissionError) as e:
@@ -365,12 +345,8 @@ def is_in_system_dir(filepath):
     return False
 
 
-# ============================================================
-# 文件名检测
-# ============================================================
 def is_double_extension(filepath):
-    """覆盖 .safe.dangerous、.dangerous.safe 以及多段扩展名。"""
-    name = Path(filepath).name.strip().rstrip(". ")  # Windows 忽略尾部点/空格
+    name = Path(filepath).name.strip().rstrip(". ")
     parts = name.split(".")
     if len(parts) < 3:
         return None
@@ -379,11 +355,9 @@ def is_double_extension(filepath):
         return None
     last = exts[-1]
     prev = exts[:-1]
-    # 危险扩展名出现在"非末位"位置，视为伪装
     for i, e in enumerate(prev):
         if e in DANGEROUS_EXTS and last in SAFE_EXTS:
             return f"双扩展名伪装: 可执行段 {e} 伪装为 {last} ({'.'.join(parts)})"
-    # 末位危险 + 前有安全扩展名
     if last in DANGEROUS_EXTS:
         for e in prev:
             if e in SAFE_EXTS:
@@ -437,9 +411,6 @@ def check_filename_features(filepath):
     return findings
 
 
-# ============================================================
-# 签名检测
-# ============================================================
 def check_file_signature(filepath):
     findings = []
     header = read_file_header(filepath, MAX_HEADER_SIZE)
@@ -470,9 +441,6 @@ def check_file_signature(filepath):
     return findings, actual, None
 
 
-# ============================================================
-# 哈希检测
-# ============================================================
 def check_hash(filepath, malicious_hashes):
     findings = []
     sha = compute_sha256(filepath)
@@ -484,9 +452,6 @@ def check_hash(filepath, malicious_hashes):
     return findings, sha, None
 
 
-# ============================================================
-# 脚本内容检测
-# ============================================================
 def check_script_content(filepath):
     findings = []
     ext = get_file_ext(filepath)
@@ -510,9 +475,6 @@ def check_script_content(filepath):
     return findings, None
 
 
-# ============================================================
-# 压缩包检查
-# ============================================================
 def check_archive_content(filepath):
     findings = []
     ext = get_file_ext(filepath)
@@ -542,11 +504,7 @@ def check_archive_content(filepath):
     return findings
 
 
-# ============================================================
-# PE 导入表解析
-# ============================================================
 def _parse_pe_imports(data):
-    """解析 PE 导入表，返回 API 名称集合；失败返回 None。"""
     if len(data) < 0x40 or data[:2] != b"MZ":
         return None
     try:
@@ -683,9 +641,6 @@ def check_pe_structure(filepath):
     return findings
 
 
-# ============================================================
-# LNK 检测
-# ============================================================
 def check_lnk(filepath):
     findings = []
     ext = get_file_ext(filepath)
@@ -710,9 +665,6 @@ def check_lnk(filepath):
     return findings
 
 
-# ============================================================
-# 综合判定
-# ============================================================
 def classify_file(findings):
     if not findings:
         return "safe", "所有检测维度通过"
@@ -743,14 +695,10 @@ def classify_file(findings):
         reasons = [f["reason"] for f in findings if f["level"] == "medium"]
         return "suspicious", "; ".join(reasons)
 
-    # 只剩 low：不作为风险，但记录原因供报告展示
     reasons = [f["reason"] for f in findings if f["level"] == "low"]
     return "safe", "; ".join(reasons) if reasons else "所有检测维度通过"
 
 
-# ============================================================
-# 扫描
-# ============================================================
 def scan_file(filepath, strategy, malicious_hashes):
     result = {
         "path": filepath,
@@ -777,10 +725,8 @@ def scan_file(filepath, strategy, malicious_hashes):
 
     all_findings = []
 
-    # 1. 文件名特征
     all_findings.extend(check_filename_features(filepath))
 
-    # 2. 文件头签名
     sig_findings, actual_type, sig_err = check_file_signature(filepath)
     all_findings.extend(sig_findings)
     result["actual_type"] = actual_type
@@ -788,25 +734,20 @@ def scan_file(filepath, strategy, malicious_hashes):
         read_errors.append(sig_err)
 
     if strategy in ("standard", "deep"):
-        # 3. 哈希
         hash_findings, sha, hash_err = check_hash(filepath, malicious_hashes)
         all_findings.extend(hash_findings)
         result["sha256"] = sha
         if hash_err:
             read_errors.append(hash_err)
 
-        # 4. 脚本内容
         content_findings, content_err = check_script_content(filepath)
         all_findings.extend(content_findings)
         if content_err:
             read_errors.append(content_err)
 
     if strategy == "deep":
-        # 5. 压缩包
         all_findings.extend(check_archive_content(filepath))
-        # 6. PE
         all_findings.extend(check_pe_structure(filepath))
-        # 7. LNK
         all_findings.extend(check_lnk(filepath))
 
     result["findings"] = all_findings
@@ -816,7 +757,6 @@ def scan_file(filepath, strategy, malicious_hashes):
 
     if classification == "safe" and read_errors and \
             not sig_findings and result["sha256"] is None:
-        # 所有读取都失败且无检测结果
         result["classification"] = "unchecked"
         result["reason"] = "; ".join(read_errors)
     return result
@@ -839,7 +779,6 @@ def collect_files(target, filter_exts, exclude_patterns):
         sys.exit(1)
 
     for root, dirs, filenames in os.walk(target, followlinks=False):
-        # 目录剪枝
         dirs[:] = [d for d in dirs if not excluded(os.path.join(root, d))]
         for filename in filenames:
             filepath = os.path.join(root, filename)
