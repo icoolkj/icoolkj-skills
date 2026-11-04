@@ -7,6 +7,12 @@ display_name: 小红书内容与卡片工作室
 display_name_en: XHS Content Studio
 description_zh: 事实驱动的小红书内容与轮播卡片工作室。用于把原始文字、报告、网页、PDF、DOCX 或图片整理成可追溯的事实素材包，并根据文章事实与信息密度生成自适应页数的3:4卡片文案、可编辑视觉工作台和PNG导出；支持在用户明确确认后通过浏览器辅助发布到小红书。
 description_en: A fact-driven Xiaohongshu content and carousel card studio. Turns raw text, reports, web pages, PDF, DOCX or images into a traceable fact pack, then generates adaptive-length 3 by 4 carousel copy, an editable visual workbench and PNG export based on article facts and information density. Supports browser-assisted publishing to Xiaohongshu only after explicit user confirmation.
+author: icoolkj
+license: MIT
+metadata:
+  homepage: https://icoolkj.com
+  email: icoolkj@163.com
+  qq: "594047667"
 ---
 
 # 小红书事实驱动内容与卡片工作室
@@ -219,3 +225,17 @@ plan → generated → checked → approved
 - `scripts/`：预处理、事实门禁、小红书文案/卡片生成和 HTML/PNG 质量校验
 
 Skill 不替代事实核查、版权审核、平台规则或法律审核。
+
+---
+
+## 关于
+
+| 项目 | 信息 |
+|------|------|
+| 出品 | icoolkj |
+| 官网 | https://icoolkj.com |
+| 邮箱 | icoolkj@163.com |
+| QQ | 594047667 |
+| 许可 | MIT License |
+
+Copyright © 2026 icoolkj.com

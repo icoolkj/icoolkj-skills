@@ -7,6 +7,12 @@ display_name: 数据分析报告 Agent
 display_name_en: Data Report Agent
 description_zh: 模型编排驱动的数据分析报告 Skill。用户用自然语言描述分析目标，Agent 负责澄清需求、调用本地脚本获取数据画像、设计章节与图表、生成或修复 report.json，并执行合规检查和报告流水线；Python 脚本负责确定性的数据计算、图表渲染及 Markdown/HTML/PDF 导出。适用于 AI 主导、交互式或需要根据业务目标定制分析结构的 CSV/Excel/JSON 报告；不用于以手工编辑配置和直接 CLI 控制为主的流程。
 description_en: An agent-orchestrated data analysis reporting skill. The user describes the analysis goal in natural language, and the agent clarifies requirements, calls local scripts for data profiling, designs sections and charts, generates or repairs report.json, then runs compliance checks and the reporting pipeline. Python scripts handle deterministic computation, chart rendering and Markdown, HTML or PDF export. Suits AI-led and interactive CSV, Excel or JSON reporting where the analysis structure is tailored to business goals. Not intended for workflows driven mainly by hand-edited configuration and direct CLI control.
+author: icoolkj
+license: MIT
+metadata:
+  homepage: https://icoolkj.com
+  email: icoolkj@163.com
+  qq: "594047667"
 ---
 
 # 数据分析报告 Agent Skill
@@ -217,3 +223,17 @@ Agent 读取本地执行错误并修改 `report.json` 后重试。若流水线�
 
 - Python 3.10+、pandas、openpyxl、matplotlib、Jinja2
 - 可选：reportlab（PDF 导出，纯 Python，推荐）
+
+---
+
+## 关于
+
+| 项目 | 信息 |
+|------|------|
+| 出品 | icoolkj |
+| 官网 | https://icoolkj.com |
+| 邮箱 | icoolkj@163.com |
+| QQ | 594047667 |
+| 许可 | MIT License |
+
+Copyright © 2026 icoolkj.com

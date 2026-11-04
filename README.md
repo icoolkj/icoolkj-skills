@@ -1,7 +1,9 @@
 # icoolkj-skills
 icoolkj AI Agent 标准化技能库，沉淀可直接给大模型调用的工具能力与任务编排流程。
 
-> 官网：https://icoolkj.com
+> 官网：https://icoolkj.com  
+> 邮箱：icoolkj@163.com  
+> QQ：594047667
 
 ## 现有技能列表
 - ✅ **note-intel**：笔记智能解析与知识提取技能，支持素材梳理、要点提炼、内容结构化
@@ -26,3 +28,11 @@ icoolkj AI Agent 标准化技能库，沉淀可直接给大模型调用的工具
 [MIT](./LICENSE)
 
 Copyright © 2026 icoolkj.com
+
+## 联系方式
+
+| 项目 | 信息 |
+|------|------|
+| 官网 | https://icoolkj.com |
+| 邮箱 | icoolkj@163.com |
+| QQ | 594047667 |

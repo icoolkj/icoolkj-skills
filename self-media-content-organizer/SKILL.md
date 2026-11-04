@@ -7,6 +7,12 @@ display_name: 自媒体内容整理中台
 display_name_en: Self-Media Content Organizer
 description_zh: 自媒体内容整理中台。用于把文章、报告、网页、采访、帖子或多份资料转化为结构化、可核对、可继续创作的内容素材包，并按微信公众号、小红书、知乎、视频号、抖音、朋友圈等平台适配成文案、图文卡片、视频脚本和视觉制作清单。支持来源登记、事实/观点/推断分层、图片资产分层、整理图规划、AI示意图规则、选题评分、多素材合并和冲突对比。绝不虚构，不把AI图当证据，不为满足数量强行填充。
 description_en: A cross-platform content operations hub for self-media. Converts articles, reports, web pages, interviews, posts or multiple sources into structured, verifiable content packs that are ready for further creation, then adapts them for WeChat Official Accounts, Xiaohongshu, Zhihu, WeChat Channels, Douyin and Moments as copy, carousel cards, video scripts and visual production checklists. Covers source registration, layering of facts, opinions and inferences, image asset layering, infographic planning, AI illustration rules, topic scoring, multi-source merging and conflict comparison. Never fabricates content, never treats AI images as evidence, and never pads output to meet quotas.
+author: icoolkj
+license: MIT
+metadata:
+  homepage: https://icoolkj.com
+  email: icoolkj@163.com
+  qq: "594047667"
 ---
 
 # 自媒体内容整理：跨平台内容中台
@@ -228,3 +234,17 @@ python scripts/compare_packs.py --pack-a pack_a.json --pack-b pack_b.json
 - `scripts/`：分析、候选提取、风险扫描、导出、校验、评分、合并和对比。
 
 Python 3.8+，脚本仅使用标准库。Skill 本身不替代平台规则、版权审核、事实核查或法律审核。
+
+---
+
+## 关于
+
+| 项目 | 信息 |
+|------|------|
+| 出品 | icoolkj |
+| 官网 | https://icoolkj.com |
+| 邮箱 | icoolkj@163.com |
+| QQ | 594047667 |
+| 许可 | MIT License |
+
+Copyright © 2026 icoolkj.com

@@ -19,6 +19,12 @@ description_en: |
   filtering by file type such as EXE, DLL, MSI, JS and PS1, shows live scanning progress, and produces a
   classified report covering safe, suspicious, malicious and unscannable files.
 allowed-tools: Bash(python:*)
+author: icoolkj
+license: MIT
+metadata:
+  homepage: https://icoolkj.com
+  email: icoolkj@163.com
+  qq: "594047667"
 ---
 
 # Security Scanner：本地文件安全查杀工具
@@ -176,3 +182,17 @@ python scripts/update_hashes.py --list
 Python 3.8+，脚本仅使用标准库（hashlib, zipfile, json, os, struct, html 等）。不安装任何第三方依赖。
 
 RAR/7Z 内检需外部工具（`unrar` / `7z`），当前版本仅提示"依赖外部工具，未解析"，不阻塞扫描。
+
+---
+
+## 关于
+
+| 项目 | 信息 |
+|------|------|
+| 出品 | icoolkj |
+| 官网 | https://icoolkj.com |
+| 邮箱 | icoolkj@163.com |
+| QQ | 594047667 |
+| 许可 | MIT License |
+
+Copyright © 2026 icoolkj.com
