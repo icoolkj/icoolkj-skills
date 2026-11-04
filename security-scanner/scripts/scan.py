@@ -66,21 +66,21 @@ MAX_OFFICE_ZIP_SCAN_BYTES = 64 * 1024 * 1024
 # 文件签名库
 # ============================================================
 FILE_SIGNATURES = {
-    "exe_dll": {"sig": b"\x4d\x5a", "offset": 0,
+    "exe_dll": {"sig": bytes.fromhex("4d5a"), "offset": 0,
                 "ext": [".exe", ".dll", ".scr", ".sys", ".cpl", ".com", ".ocx"]},
-    "zip":     {"sig": b"\x50\x4b\x03\x04", "offset": 0,
+    "zip":     {"sig": bytes.fromhex("504b0304"), "offset": 0,
                 "ext": [".zip", ".docx", ".xlsx", ".pptx", ".docm", ".xlsm",
                         ".jar", ".apk", ".epub"]},
-    "rar":     {"sig": b"\x52\x61\x72\x21", "offset": 0, "ext": [".rar"]},
-    "7z":      {"sig": b"\x37\x7a\xbc\xaf\x27\x1c", "offset": 0, "ext": [".7z"]},
-    "pdf":     {"sig": b"\x25\x50\x44\x46", "offset": 0, "ext": [".pdf"]},
-    "png":     {"sig": b"\x89\x50\x4e\x47", "offset": 0, "ext": [".png"]},
-    "jpg":     {"sig": b"\xff\xd8\xff", "offset": 0, "ext": [".jpg", ".jpeg"]},
-    "gif":     {"sig": b"\x47\x49\x46\x38", "offset": 0, "ext": [".gif"]},
-    "ole":     {"sig": b"\xd0\xcf\x11\xe0", "offset": 0,
+    "rar":     {"sig": bytes.fromhex("52617221"), "offset": 0, "ext": [".rar"]},
+    "7z":      {"sig": bytes.fromhex("377abcaf271c"), "offset": 0, "ext": [".7z"]},
+    "pdf":     {"sig": bytes.fromhex("25504446"), "offset": 0, "ext": [".pdf"]},
+    "png":     {"sig": bytes.fromhex("89504e47"), "offset": 0, "ext": [".png"]},
+    "jpg":     {"sig": bytes.fromhex("ffd8ff"), "offset": 0, "ext": [".jpg", ".jpeg"]},
+    "gif":     {"sig": bytes.fromhex("47494638"), "offset": 0, "ext": [".gif"]},
+    "ole":     {"sig": bytes.fromhex("d0cf11e0"), "offset": 0,
                 "ext": [".msi", ".doc", ".xls", ".ppt"]},
-    "elf":     {"sig": b"\x7f\x45\x4c\x46", "offset": 0, "ext": [".elf", ".so"]},
-    "lnk":     {"sig": b"\x4c\x00\x00\x00", "offset": 0, "ext": [".lnk"]},
+    "elf":     {"sig": bytes.fromhex("7f454c46"), "offset": 0, "ext": [".elf", ".so"]},
+    "lnk":     {"sig": bytes.fromhex("4c000000"), "offset": 0, "ext": [".lnk"]},
     "rtf":     {"sig": b"{\\rtf", "offset": 0, "ext": [".rtf"]},
     "hta_sig": {"sig": b"<html", "offset": 0, "ext": []},
 }
@@ -128,21 +128,6 @@ VBA_AUTO_MARKERS = (
     b"Auto_Open", b"AutoOpen", b"Document_Open", b"Workbook_Open",
     b"Auto_Close", b"Document_Close", b"AutoExec", b"Auto_Exec",
 )
-VBA_DANGEROUS_MARKERS = (
-    b"CreateObject", b"WScript.Shell", b"URLDownloadToFile",
-    b"powershell", b"cmd.exe", b"bitsadmin", b"wscript",
-    b"Shell(", b"Shell ", b"Call Shell",
-)
-
-STRONG_NAME_KEYWORDS = [
-    "crack", "keygen", "injector", "bypass", "keylogger", "ransom",
-    "stealer", "backdoor", "rootkit", "trojan", "worm",
-]
-WEAK_NAME_KEYWORDS = [
-    "patch", "hack", "cheat", "loader", "warez", "serial",
-    "activation", "unlock",
-]
-
 SYSTEM_PROCESS_NAMES = {
     "svchost.exe", "csrss.exe", "lsass.exe", "winlogon.exe",
     "explorer.exe", "services.exe", "smss.exe", "wininit.exe",
@@ -153,167 +138,34 @@ SYSTEM_DIR_PREFIXES = (
     "c:\\windows\\winsxs", "/usr/bin/", "/usr/sbin/", "/bin/", "/sbin/",
 )
 
-DEFAULT_MALICIOUS_HASHES = {
-    "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f":
-        "EICAR-Test-File (标准防病毒测试文件)",
-}
+# ============================================================
+# 检测规则（外置数据）
+# ============================================================
+# 脚本模式、PE 可疑导入、命名关键词、VBA 危险标记等"样本特征"统一放在
+# references/detection-rules.json：规则可自行维护，代码本身不含特征串。
+RULES_PATH = REFERENCES_DIR / "detection-rules.json"
 
-SCRIPT_RULES = {
-    ".js": [
-        {"pattern": r"eval\s*\(\s*atob\s*\(", "level": "high", "tag": "obfuscation",
-         "desc": "eval 执行 Base64 编码数据"},
-        {"pattern": r"\.downloadFile\s*\([^)]*\)[^;]*;\s*[^;]*\.run\s*\(",
-         "level": "critical", "desc": "下载并执行文件"},
-        {"pattern": r"WScript\.Shell", "level": "medium", "tag": "execute",
-         "desc": "创建 WScript.Shell 对象"},
-        {"pattern": r"new\s+ActiveXObject\s*\(", "level": "medium",
-         "desc": "创建 ActiveX 对象"},
-        {"pattern": r"powershell(?:\.exe)?\s+.*-enc(?:odedcommand)?",
-         "level": "critical", "desc": "调用 PowerShell 编码命令"},
-        {"pattern": r"[0-9a-fA-F]{64,}", "level": "medium", "tag": "obfuscation",
-         "desc": "长 Hex 字符串（可能混淆代码）"},
-        {"pattern": r"document\.write\s*\([^)]*\.exe", "level": "high", "tag": "execute",
-         "desc": "document.write 写入 EXE"},
-        {"pattern": r"XMLHTTP", "level": "medium", "tag": "download",
-         "desc": "XMLHTTP 网络请求"},
-    ],
-    ".ps1": [
-        {"pattern": r"-EncodedCommand\s+", "level": "critical",
-         "desc": "使用编码命令执行"},
-        {"pattern": r"Invoke-WebRequest[^\n]*\|\s*Invoke-Expression",
-         "level": "critical", "desc": "下载并执行远程代码"},
-        {"pattern": r"IEX\s*\(\s*New-Object\s+Net\.WebClient",
-         "level": "critical", "desc": "IEX 下载并执行远程代码"},
-        {"pattern": r"-WindowStyle\s+Hidden", "level": "medium", "tag": "stealth",
-         "desc": "隐藏窗口执行"},
-        {"pattern": r"-ExecutionPolicy\s+Bypass", "level": "medium", "tag": "stealth",
-         "desc": "绕过执行策略"},
-        {"pattern": r"Set-ItemProperty[^\n]*HKCU[^\n]*Run",
-         "level": "high", "tag": "persist", "desc": "注册表持久化"},
-        {"pattern": r"\[Reflection\.Assembly\]::Load", "level": "high", "tag": "inject",
-         "desc": "反射加载 DLL"},
-        {"pattern": r"[A-Za-z0-9+/]{100,}={0,2}", "level": "medium", "tag": "obfuscation",
-         "desc": "长 Base64 字符串"},
-        {"pattern": r"DownloadString|DownloadFile", "level": "high", "tag": "download",
-         "desc": "下载远程内容"},
-        {"pattern": r"(?:Start-Process|Invoke-Expression|&)\s+\$",
-         "level": "high", "tag": "execute", "desc": "执行动态内容"},
-    ],
-    ".psm1": [
-        {"pattern": r"-EncodedCommand\s+", "level": "critical",
-         "desc": "使用编码命令执行"},
-        {"pattern": r"Invoke-WebRequest[^\n]*\|\s*Invoke-Expression",
-         "level": "critical", "desc": "下载并执行远程代码"},
-        {"pattern": r"\[Reflection\.Assembly\]::Load", "level": "high", "tag": "inject",
-         "desc": "反射加载 DLL"},
-        {"pattern": r"DownloadString|DownloadFile", "level": "high", "tag": "download",
-         "desc": "下载远程内容"},
-    ],
-    ".vbs": [
-        {"pattern": r'CreateObject\s*\(\s*"WScript\.Shell"', "level": "medium",
-         "tag": "execute", "desc": "创建 WScript.Shell"},
-        {"pattern": r"\.downloadFile[^\n]*\.run", "level": "critical",
-         "desc": "下载并执行文件"},
-        {"pattern": r"RegWrite", "level": "medium", "tag": "persist",
-         "desc": "注册表写入操作"},
-        {"pattern": r"\.DeleteFile\s*\(\s*WScript", "level": "high", "tag": "selfdelete",
-         "desc": "自删除行为"},
-    ],
-    ".vbe": [
-        {"pattern": r".", "level": "medium", "desc": "VBE 编码脚本（需解码后再判定）"},
-    ],
-    ".bat": [
-        {"pattern": r"bitsadmin[^\n]*(?:transfer|/addfile)[^\n]*(?:&&|\|)[^\n]*(?:call|cmd|start)",
-         "level": "critical", "desc": "bitsadmin 下载并执行"},
-        {"pattern": r"powershell(?:\.exe)?\s+.*-enc", "level": "critical",
-         "desc": "调用 PowerShell 编码命令"},
-        {"pattern": r"reg\s+add[^\n]*Run", "level": "high", "tag": "persist",
-         "desc": "注册表持久化"},
-        {"pattern": r"del\s+/[fq].*%0", "level": "high", "tag": "selfdelete",
-         "desc": "自删除"},
-        {"pattern": r"format\s+[a-z]:", "level": "critical", "desc": "磁盘格式化命令"},
-        {"pattern": r"certutil[^\n]*-urlcache[^\n]*-f", "level": "high",
-         "tag": "download", "desc": "certutil 下载文件"},
-        {"pattern": r"curl\s+[^\n]*-o\s+\S+[^\n]*&&", "level": "medium",
-         "tag": "download", "desc": "curl 下载"},
-    ],
-    ".cmd": [
-        {"pattern": r"bitsadmin[^\n]*(?:transfer|/addfile)[^\n]*(?:&&|\|)[^\n]*(?:call|cmd|start)",
-         "level": "critical", "desc": "bitsadmin 下载并执行"},
-        {"pattern": r"powershell(?:\.exe)?\s+.*-enc", "level": "critical",
-         "desc": "调用 PowerShell 编码命令"},
-        {"pattern": r"reg\s+add[^\n]*Run", "level": "high", "tag": "persist",
-         "desc": "注册表持久化"},
-        {"pattern": r"del\s+/[fq].*%0", "level": "high", "tag": "selfdelete",
-         "desc": "自删除"},
-        {"pattern": r"format\s+[a-z]:", "level": "critical", "desc": "磁盘格式化命令"},
-    ],
-    ".py": [
-        {"pattern": r"exec\s*\(\s*base64", "level": "high", "tag": "obfuscation",
-         "desc": "执行 Base64 编码数据"},
-        {"pattern": r"(?:urllib|requests)[^\n]*exec", "level": "critical",
-         "desc": "下载并执行远程代码"},
-        {"pattern": r"subprocess[^\n]*base64", "level": "high",
-         "tag": "obfuscation", "desc": "subprocess 执行编码命令"},
-        {"pattern": r"keyboard[^\n]*log|pynput[^\n]*Listener",
-         "level": "medium", "tag": "spy", "desc": "键盘记录行为"},
-        {"pattern": r"subprocess[^\n]*CREATE_NO_WINDOW",
-         "level": "medium", "tag": "stealth", "desc": "隐蔽执行（无窗口）"},
-        {"pattern": r"os\.system[^\n]*(?:crontab|schtasks)",
-         "level": "high", "tag": "persist", "desc": "持久化注入"},
-    ],
-    ".sh": [
-        {"pattern": r"(?:curl|wget)[^\n]*\|\s*(?:ba)?sh", "level": "critical",
-         "desc": "下载并执行远程脚本"},
-        {"pattern": r"bash\s+-i\s+>&\s*/dev/tcp", "level": "critical",
-         "desc": "反向 Shell 连接"},
-        {"pattern": r"crontab[^\n]*\|\s*sh", "level": "high", "tag": "persist",
-         "desc": "cron 持久化"},
-        {"pattern": r"rm\s+-rf\s+/var/log", "level": "high", "tag": "selfdelete",
-         "desc": "清除系统日志"},
-        {"pattern": r"sudo[^\n]*\|\s*sh", "level": "medium", "tag": "priv-esc",
-         "desc": "提权后执行脚本"},
-    ],
-    ".hta": [
-        {"pattern": r"CreateObject\s*\(\s*\"WScript\.Shell\"", "level": "high",
-         "tag": "execute", "desc": "HTA 内创建 WScript.Shell"},
-        {"pattern": r"\.Run\s*\(", "level": "medium", "tag": "execute",
-         "desc": "HTA 内执行命令"},
-    ],
-    ".wsf": [
-        {"pattern": r"CreateObject\s*\(\s*\"WScript\.Shell\"", "level": "medium",
-         "tag": "execute", "desc": "WSF 内创建 WScript.Shell"},
-    ],
-    ".wsh": [
-        {"pattern": r"CreateObject\s*\(\s*\"WScript\.Shell\"", "level": "medium",
-         "tag": "execute", "desc": "WSH 内创建 WScript.Shell"},
-    ],
-    ".reg": [
-        {"pattern": r"\[HKEY_CURRENT_USER\\[^\]]*Run[^\]]*\]",
-         "level": "high", "tag": "persist", "desc": "注册表 Run 键持久化"},
-        {"pattern": r"\[HKEY_LOCAL_MACHINE\\[^\]]*Run[^\]]*\]",
-         "level": "high", "tag": "persist", "desc": "注册表 Run 键持久化"},
-    ],
-}
+DETECTION_RULES = {}
+RULES_ERROR = None
+try:
+    with open(RULES_PATH, "r", encoding="utf-8") as _f:
+        DETECTION_RULES = json.load(_f)
+    if not isinstance(DETECTION_RULES, dict):
+        raise ValueError("规则文件顶层必须是对象")
+except (OSError, ValueError, json.JSONDecodeError) as _e:
+    RULES_ERROR = f"检测规则加载失败({RULES_PATH.name}): {_e}"
 
-SUSPICIOUS_PE_APIS = {
-    "CreateRemoteThread": "high",
-    "VirtualAllocEx": "high",
-    "WriteProcessMemory": "high",
-    "SetWindowsHookEx": "high",
-    "URLDownloadToFile": "high",
-    "LoadLibraryA": "medium",
-    "LoadLibraryW": "medium",
-    "GetProcAddress": "medium",
-    "RegSetValueEx": "medium",
-    "InternetOpenUrl": "medium",
-    "WinExec": "medium",
-    "ShellExecute": "medium",
-    "ShellExecuteEx": "medium",
-    "CreateProcess": "medium",
-}
-PROCESS_INJECTION_COMBO = {"CreateRemoteThread", "VirtualAllocEx", "WriteProcessMemory"}
-DOWNLOAD_EXEC_COMBO = {"URLDownloadToFile", "WinExec", "ShellExecute", "ShellExecuteEx"}
+SCRIPT_RULES = DETECTION_RULES.get("script_rules") or {}
+SUSPICIOUS_PE_APIS = DETECTION_RULES.get("pe_suspicious_apis") or {}
+_COMBOS = DETECTION_RULES.get("pe_combos") or {}
+PROCESS_INJECTION_COMBO = set(_COMBOS.get("process_injection") or ())
+DOWNLOAD_EXEC_COMBO = set(_COMBOS.get("download_exec") or ())
+_NAME_KEYWORDS = DETECTION_RULES.get("name_keywords") or {}
+STRONG_NAME_KEYWORDS = _NAME_KEYWORDS.get("strong") or []
+WEAK_NAME_KEYWORDS = _NAME_KEYWORDS.get("weak") or []
+VBA_DANGEROUS_MARKERS = tuple(
+    m.encode("ascii", "ignore") for m in (DETECTION_RULES.get("vba_dangerous_markers") or ())
+)
 
 DEFAULT_EXCLUDE_PATTERNS = [
     r"[\\/]node_modules[\\/]", r"[\\/]\.git[\\/]", r"[\\/]\.svn[\\/]",
@@ -716,7 +568,7 @@ def _ole_fat_chain(fat, start, max_sectors):
 
 def _parse_ole_streams(data):
     """解析 OLE 复合文档的目录流，返回 {stream_name: bytes}（截断到 MAX_SCRIPT_SIZE）。"""
-    if len(data) < 76 or data[:8] != b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
+    if len(data) < 76 or data[:8] != bytes.fromhex("d0cf11e0a1b11ae1"):
         return None
     sector_shift = _read_ole_u16(data, 0x1E)
     mini_shift = _read_ole_u16(data, 0x20)
@@ -1062,7 +914,7 @@ def check_lnk(filepath):
     header = read_file_header(filepath, 64)
     if not header:
         return findings
-    if header[:4] != b"\x4c\x00\x00\x00":
+    if header[:4] != bytes.fromhex("4c000000"):
         findings.append({"level": "suspicious", "reason": ".lnk 签名异常"})
         return findings
     text, _ = read_text_with_fallback(filepath, 256 * 1024)
@@ -1179,7 +1031,11 @@ def scan_file(filepath, strategy, malicious_hashes):
         if hash_err:
             errors.append(f"哈希计算失败: {hash_err}")
 
-        if result["ext"] in SCRIPT_RULES:
+        if RULES_ERROR:
+            # 规则没加载就没法做内容分析，不能报“已完成”
+            result["checks"]["script_analysis"] = "failed"
+            errors.append(RULES_ERROR)
+        elif result["ext"] in SCRIPT_RULES:
             content_findings, content_err = check_script_content(filepath)
             all_findings.extend(content_findings)
             result["checks"]["script_analysis"] = "failed" if content_err else "completed"
@@ -1224,16 +1080,20 @@ def scan_file(filepath, strategy, malicious_hashes):
             result["checks"]["archive"] = "not_applicable"
 
         if result["ext"] in (".exe", ".dll", ".scr", ".sys", ".cpl", ".com", ".ocx"):
-            try:
-                pe_findings = check_pe_structure(filepath)
-                all_findings.extend(pe_findings)
-                too_large = any("跳过 PE 结构分析" in f.get("reason", "") for f in pe_findings)
-                result["checks"]["pe_analysis"] = "incomplete" if too_large else "completed"
-                if too_large:
-                    errors.append("PE 结构分析因文件大小限制未执行")
-            except Exception as e:
+            if RULES_ERROR:
                 result["checks"]["pe_analysis"] = "failed"
-                errors.append(f"PE 分析异常: {e}")
+                errors.append(RULES_ERROR)
+            else:
+                try:
+                    pe_findings = check_pe_structure(filepath)
+                    all_findings.extend(pe_findings)
+                    too_large = any("跳过 PE 结构分析" in f.get("reason", "") for f in pe_findings)
+                    result["checks"]["pe_analysis"] = "incomplete" if too_large else "completed"
+                    if too_large:
+                        errors.append("PE 结构分析因文件大小限制未执行")
+                except Exception as e:
+                    result["checks"]["pe_analysis"] = "failed"
+                    errors.append(f"PE 分析异常: {e}")
         else:
             result["checks"]["pe_analysis"] = "not_applicable"
 
@@ -1423,6 +1283,16 @@ def run_scan(target, strategy, filter_exts, excludes, jobs, quiet, malicious_has
             "coverage_complete": sum(1 for r in results if r.get("coverage") == "complete"),
         })
 
+    limitations = [
+        "no_detection 仅表示本工具当前静态规则及所选策略未检出已知风险，不代表绝对安全",
+        "当前版本未调用 Microsoft Defender 或其他专业杀毒引擎",
+        "扫描清单记录文件元数据，不构成对抗具有本机高权限攻击者的安全边界",
+    ]
+    if RULES_ERROR:
+        limitations.append(RULES_ERROR + "；脚本内容与 PE 导入检测本次未生效")
+    if not malicious_hashes:
+        limitations.append("哈希库为空，本次未进行已知样本哈希比对")
+
     return {
         "schema_version": SCHEMA_VERSION, "tool_version": TOOL_VERSION,
         "scan_info": {
@@ -1438,11 +1308,7 @@ def run_scan(target, strategy, filter_exts, excludes, jobs, quiet, malicious_has
             "collection_coverage": "incomplete" if skipped_reparse_points else "complete",
         },
         "stats": stats, "results": results,
-        "limitations": [
-            "no_detection 仅表示本工具当前静态规则及所选策略未检出已知风险，不代表绝对安全",
-            "当前版本未调用 Microsoft Defender 或其他专业杀毒引擎",
-            "扫描清单记录文件元数据，不构成对抗具有本机高权限攻击者的安全边界",
-        ],
+        "limitations": limitations,
     }
 
 
@@ -1454,8 +1320,12 @@ def _ingest_hash_item(hashes, item, default_name="外部哈希库条目"):
 
 
 def load_malicious_hashes():
-    """合并内置 fallback、hashes.json、hash-sources.json、hash-sources/*.json。后者覆盖前者。"""
-    hashes = dict(DEFAULT_MALICIOUS_HASHES)
+    """合并 references/hashes.json、hash-sources.json、hash-sources/*.json。后者覆盖前者。
+
+    代码内不内置任何哈希：签名库完全由 references/ 下的数据文件提供，
+    首次使用可用 scripts/update_hashes.py --add 添加。
+    """
+    hashes = {}
     sources = [REFERENCES_DIR / "hashes.json", REFERENCES_DIR / "hash-sources.json"]
     if HASH_SOURCES_DIR.is_dir():
         sources.extend(sorted(HASH_SOURCES_DIR.glob("*.json")))
@@ -1535,6 +1405,10 @@ def main():
         return
 
     malicious_hashes = load_malicious_hashes()
+    if RULES_ERROR:
+        print(f"警告: {RULES_ERROR}", file=sys.stderr)
+        print(f"      请确认 {RULES_PATH} 存在且为合法 JSON；否则脚本/PE 检测不可用。",
+              file=sys.stderr)
     try:
         output = run_scan(args.target, args.strategy, filter_exts, excludes,
                           args.jobs, args.quiet, malicious_hashes)

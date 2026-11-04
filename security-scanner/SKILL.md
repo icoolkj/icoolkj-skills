@@ -6,7 +6,7 @@ description: |
   生成未检出/可疑/恶意/未能检查四类分类报告，并标注检测覆盖情况。
   触发词：扫描、查杀、查毒、杀毒、检查病毒、扫描目录、扫描U盘、检查EXE、安全扫描、malware scan、virus scan。
 agent_created: true
-version: 1.1.0
+version: 1.1.1
 display_name: 本地文件安全查杀
 display_name_en: Security Scanner
 description_zh: |
@@ -101,11 +101,11 @@ python scripts/scan.py \
 
 脚本输出 JSON 格式结果到 stdout 和指定文件，进度信息输出到 stderr。
 
-扫描引擎按以下顺序对每个文件执行检测（具体规则见 `references/threat-detection-rules.md`）：
+扫描引擎按以下顺序对每个文件执行检测（规则数据见 `references/detection-rules.json`，规则说明见 `references/threat-detection-rules.md`）：
 
 1. **文件名特征检测**：双扩展名（含多段）、可疑命名（强/弱信号）、伪装扩展名
 2. **文件头签名检测**：文件实际类型与扩展名是否匹配（含 .docx/.xlsx/.docm/.xlsm/.jar 映射至 ZIP 签名）
-3. **文件哈希检测**：计算 SHA256，与内置 + `references/hashes.json` + `references/hash-sources.json` 合并比对
+3. **文件哈希检测**：计算 SHA256，与 `references/hashes.json` + `references/hash-sources.json` 合并比对；代码内不内置样本哈希，库为空时在 `limitations` 中明确写出"本次未做哈希比对"
 4. **脚本内容分析**：JS/PS1/PSM1/VBS/VBE/BAT/CMD/PY/SH/HTA/WSF/WSH/REG 中的危险模式
 5. **Office 宏流检测**（standard/deep）：OOXML（docx/xlsx/pptx/docm/xlsm/pptm）查 `vbaProject.bin`；OLE（doc/xls/ppt）解析复合文档流名
 6. **压缩包内容检查**（deep）：ZIP 内部文件名 + 读取每个条目文件头（伪装 EXE/类型不一致）；RAR/7Z 仅提示"依赖外部工具"
@@ -201,10 +201,11 @@ python scripts/update_hashes.py --list
 
 | 资源 | 路径 | 用途 |
 |------|------|------|
+| 检测规则数据 | `references/detection-rules.json` | 脚本模式 / PE 可疑导入 / 命名关键词 / VBA 危险标记；可自行增删，无需改代码 |
 | 威胁检测规则 | `references/threat-detection-rules.md` | 各检测维度的具体规则和判定标准 |
 | 扫描策略详解 | `references/scan-strategies.md` | 三种策略的检测项、适用场景和性能预期 |
 | 文件类型风险矩阵 | `references/file-type-risk-matrix.md` | 各文件类型的风险等级和检测重点 |
-| 恶意哈希库 | `references/hashes.json` | 可更新的 SHA256 恶意样本库（与内置 fallback 合并） |
+| 恶意哈希库 | `references/hashes.json` | 可更新的 SHA256 恶意样本库（代码内不内置任何样本哈希） |
 | 哈希源 | `references/hash-sources.json` | 第三方 JSON 清单（平铺单文件，分发兼容；本地也可用 hash-sources/ 目录），扫描时自动合并 |
 | 扫描脚本 | `scripts/scan.py` | 主扫描引擎 |
 | 报告脚本 | `scripts/report.py` | 报告生成器 |

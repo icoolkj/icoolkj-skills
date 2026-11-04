@@ -1,0 +1,415 @@
+{
+  "version": 1,
+  "description": "Security Scanner 检测规则数据。可自行增删，无需修改 scripts/scan.py。",
+  "script_rules": {
+    ".js": [
+      {
+        "pattern": "eval\\s*\\(\\s*atob\\s*\\(",
+        "level": "high",
+        "tag": "obfuscation",
+        "desc": "eval 执行 Base64 编码数据"
+      },
+      {
+        "pattern": "\\.downloadFile\\s*\\([^)]*\\)[^;]*;\\s*[^;]*\\.run\\s*\\(",
+        "level": "critical",
+        "desc": "下载并执行文件"
+      },
+      {
+        "pattern": "WScript\\.Shell",
+        "level": "medium",
+        "tag": "execute",
+        "desc": "创建 WScript.Shell 对象"
+      },
+      {
+        "pattern": "new\\s+ActiveXObject\\s*\\(",
+        "level": "medium",
+        "desc": "创建 ActiveX 对象"
+      },
+      {
+        "pattern": "powershell(?:\\.exe)?\\s+.*-enc(?:odedcommand)?",
+        "level": "critical",
+        "desc": "调用 PowerShell 编码命令"
+      },
+      {
+        "pattern": "[0-9a-fA-F]{64,}",
+        "level": "medium",
+        "tag": "obfuscation",
+        "desc": "长 Hex 字符串（可能混淆代码）"
+      },
+      {
+        "pattern": "document\\.write\\s*\\([^)]*\\.exe",
+        "level": "high",
+        "tag": "execute",
+        "desc": "document.write 写入 EXE"
+      },
+      {
+        "pattern": "XMLHTTP",
+        "level": "medium",
+        "tag": "download",
+        "desc": "XMLHTTP 网络请求"
+      }
+    ],
+    ".ps1": [
+      {
+        "pattern": "-EncodedCommand\\s+",
+        "level": "critical",
+        "desc": "使用编码命令执行"
+      },
+      {
+        "pattern": "Invoke-WebRequest[^\\n]*\\|\\s*Invoke-Expression",
+        "level": "critical",
+        "desc": "下载并执行远程代码"
+      },
+      {
+        "pattern": "IEX\\s*\\(\\s*New-Object\\s+Net\\.WebClient",
+        "level": "critical",
+        "desc": "IEX 下载并执行远程代码"
+      },
+      {
+        "pattern": "-WindowStyle\\s+Hidden",
+        "level": "medium",
+        "tag": "stealth",
+        "desc": "隐藏窗口执行"
+      },
+      {
+        "pattern": "-ExecutionPolicy\\s+Bypass",
+        "level": "medium",
+        "tag": "stealth",
+        "desc": "绕过执行策略"
+      },
+      {
+        "pattern": "Set-ItemProperty[^\\n]*HKCU[^\\n]*Run",
+        "level": "high",
+        "tag": "persist",
+        "desc": "注册表持久化"
+      },
+      {
+        "pattern": "\\[Reflection\\.Assembly\\]::Load",
+        "level": "high",
+        "tag": "inject",
+        "desc": "反射加载 DLL"
+      },
+      {
+        "pattern": "[A-Za-z0-9+/]{100,}={0,2}",
+        "level": "medium",
+        "tag": "obfuscation",
+        "desc": "长 Base64 字符串"
+      },
+      {
+        "pattern": "DownloadString|DownloadFile",
+        "level": "high",
+        "tag": "download",
+        "desc": "下载远程内容"
+      },
+      {
+        "pattern": "(?:Start-Process|Invoke-Expression|&)\\s+\\$",
+        "level": "high",
+        "tag": "execute",
+        "desc": "执行动态内容"
+      }
+    ],
+    ".psm1": [
+      {
+        "pattern": "-EncodedCommand\\s+",
+        "level": "critical",
+        "desc": "使用编码命令执行"
+      },
+      {
+        "pattern": "Invoke-WebRequest[^\\n]*\\|\\s*Invoke-Expression",
+        "level": "critical",
+        "desc": "下载并执行远程代码"
+      },
+      {
+        "pattern": "\\[Reflection\\.Assembly\\]::Load",
+        "level": "high",
+        "tag": "inject",
+        "desc": "反射加载 DLL"
+      },
+      {
+        "pattern": "DownloadString|DownloadFile",
+        "level": "high",
+        "tag": "download",
+        "desc": "下载远程内容"
+      }
+    ],
+    ".vbs": [
+      {
+        "pattern": "CreateObject\\s*\\(\\s*\"WScript\\.Shell\"",
+        "level": "medium",
+        "tag": "execute",
+        "desc": "创建 WScript.Shell"
+      },
+      {
+        "pattern": "\\.downloadFile[^\\n]*\\.run",
+        "level": "critical",
+        "desc": "下载并执行文件"
+      },
+      {
+        "pattern": "RegWrite",
+        "level": "medium",
+        "tag": "persist",
+        "desc": "注册表写入操作"
+      },
+      {
+        "pattern": "\\.DeleteFile\\s*\\(\\s*WScript",
+        "level": "high",
+        "tag": "selfdelete",
+        "desc": "自删除行为"
+      }
+    ],
+    ".vbe": [
+      {
+        "pattern": ".",
+        "level": "medium",
+        "desc": "VBE 编码脚本（需解码后再判定）"
+      }
+    ],
+    ".bat": [
+      {
+        "pattern": "bitsadmin[^\\n]*(?:transfer|/addfile)[^\\n]*(?:&&|\\|)[^\\n]*(?:call|cmd|start)",
+        "level": "critical",
+        "desc": "bitsadmin 下载并执行"
+      },
+      {
+        "pattern": "powershell(?:\\.exe)?\\s+.*-enc",
+        "level": "critical",
+        "desc": "调用 PowerShell 编码命令"
+      },
+      {
+        "pattern": "reg\\s+add[^\\n]*Run",
+        "level": "high",
+        "tag": "persist",
+        "desc": "注册表持久化"
+      },
+      {
+        "pattern": "del\\s+/[fq].*%0",
+        "level": "high",
+        "tag": "selfdelete",
+        "desc": "自删除"
+      },
+      {
+        "pattern": "format\\s+[a-z]:",
+        "level": "critical",
+        "desc": "磁盘格式化命令"
+      },
+      {
+        "pattern": "certutil[^\\n]*-urlcache[^\\n]*-f",
+        "level": "high",
+        "tag": "download",
+        "desc": "certutil 下载文件"
+      },
+      {
+        "pattern": "curl\\s+[^\\n]*-o\\s+\\S+[^\\n]*&&",
+        "level": "medium",
+        "tag": "download",
+        "desc": "curl 下载"
+      }
+    ],
+    ".cmd": [
+      {
+        "pattern": "bitsadmin[^\\n]*(?:transfer|/addfile)[^\\n]*(?:&&|\\|)[^\\n]*(?:call|cmd|start)",
+        "level": "critical",
+        "desc": "bitsadmin 下载并执行"
+      },
+      {
+        "pattern": "powershell(?:\\.exe)?\\s+.*-enc",
+        "level": "critical",
+        "desc": "调用 PowerShell 编码命令"
+      },
+      {
+        "pattern": "reg\\s+add[^\\n]*Run",
+        "level": "high",
+        "tag": "persist",
+        "desc": "注册表持久化"
+      },
+      {
+        "pattern": "del\\s+/[fq].*%0",
+        "level": "high",
+        "tag": "selfdelete",
+        "desc": "自删除"
+      },
+      {
+        "pattern": "format\\s+[a-z]:",
+        "level": "critical",
+        "desc": "磁盘格式化命令"
+      }
+    ],
+    ".py": [
+      {
+        "pattern": "exec\\s*\\(\\s*base64",
+        "level": "high",
+        "tag": "obfuscation",
+        "desc": "执行 Base64 编码数据"
+      },
+      {
+        "pattern": "(?:urllib|requests)[^\\n]*exec",
+        "level": "critical",
+        "desc": "下载并执行远程代码"
+      },
+      {
+        "pattern": "subprocess[^\\n]*base64",
+        "level": "high",
+        "tag": "obfuscation",
+        "desc": "subprocess 执行编码命令"
+      },
+      {
+        "pattern": "keyboard[^\\n]*log|pynput[^\\n]*Listener",
+        "level": "medium",
+        "tag": "spy",
+        "desc": "键盘记录行为"
+      },
+      {
+        "pattern": "subprocess[^\\n]*CREATE_NO_WINDOW",
+        "level": "medium",
+        "tag": "stealth",
+        "desc": "隐蔽执行（无窗口）"
+      },
+      {
+        "pattern": "os\\.system[^\\n]*(?:crontab|schtasks)",
+        "level": "high",
+        "tag": "persist",
+        "desc": "持久化注入"
+      }
+    ],
+    ".sh": [
+      {
+        "pattern": "(?:curl|wget)[^\\n]*\\|\\s*(?:ba)?sh",
+        "level": "critical",
+        "desc": "下载并执行远程脚本"
+      },
+      {
+        "pattern": "bash\\s+-i\\s+>&\\s*/dev/tcp",
+        "level": "critical",
+        "desc": "反向 Shell 连接"
+      },
+      {
+        "pattern": "crontab[^\\n]*\\|\\s*sh",
+        "level": "high",
+        "tag": "persist",
+        "desc": "cron 持久化"
+      },
+      {
+        "pattern": "rm\\s+-rf\\s+/var/log",
+        "level": "high",
+        "tag": "selfdelete",
+        "desc": "清除系统日志"
+      },
+      {
+        "pattern": "sudo[^\\n]*\\|\\s*sh",
+        "level": "medium",
+        "tag": "priv-esc",
+        "desc": "提权后执行脚本"
+      }
+    ],
+    ".hta": [
+      {
+        "pattern": "CreateObject\\s*\\(\\s*\\\"WScript\\.Shell\\\"",
+        "level": "high",
+        "tag": "execute",
+        "desc": "HTA 内创建 WScript.Shell"
+      },
+      {
+        "pattern": "\\.Run\\s*\\(",
+        "level": "medium",
+        "tag": "execute",
+        "desc": "HTA 内执行命令"
+      }
+    ],
+    ".wsf": [
+      {
+        "pattern": "CreateObject\\s*\\(\\s*\\\"WScript\\.Shell\\\"",
+        "level": "medium",
+        "tag": "execute",
+        "desc": "WSF 内创建 WScript.Shell"
+      }
+    ],
+    ".wsh": [
+      {
+        "pattern": "CreateObject\\s*\\(\\s*\\\"WScript\\.Shell\\\"",
+        "level": "medium",
+        "tag": "execute",
+        "desc": "WSH 内创建 WScript.Shell"
+      }
+    ],
+    ".reg": [
+      {
+        "pattern": "\\[HKEY_CURRENT_USER\\\\[^\\]]*Run[^\\]]*\\]",
+        "level": "high",
+        "tag": "persist",
+        "desc": "注册表 Run 键持久化"
+      },
+      {
+        "pattern": "\\[HKEY_LOCAL_MACHINE\\\\[^\\]]*Run[^\\]]*\\]",
+        "level": "high",
+        "tag": "persist",
+        "desc": "注册表 Run 键持久化"
+      }
+    ]
+  },
+  "vba_dangerous_markers": [
+    "CreateObject",
+    "WScript.Shell",
+    "URLDownloadToFile",
+    "powershell",
+    "cmd.exe",
+    "bitsadmin",
+    "wscript",
+    "Shell(",
+    "Shell ",
+    "Call Shell"
+  ],
+  "name_keywords": {
+    "strong": [
+      "crack",
+      "keygen",
+      "injector",
+      "bypass",
+      "keylogger",
+      "ransom",
+      "stealer",
+      "backdoor",
+      "rootkit",
+      "trojan",
+      "worm"
+    ],
+    "weak": [
+      "patch",
+      "hack",
+      "cheat",
+      "loader",
+      "warez",
+      "serial",
+      "activation",
+      "unlock"
+    ]
+  },
+  "pe_suspicious_apis": {
+    "CreateRemoteThread": "high",
+    "VirtualAllocEx": "high",
+    "WriteProcessMemory": "high",
+    "SetWindowsHookEx": "high",
+    "URLDownloadToFile": "high",
+    "LoadLibraryA": "medium",
+    "LoadLibraryW": "medium",
+    "GetProcAddress": "medium",
+    "RegSetValueEx": "medium",
+    "InternetOpenUrl": "medium",
+    "WinExec": "medium",
+    "ShellExecute": "medium",
+    "ShellExecuteEx": "medium",
+    "CreateProcess": "medium"
+  },
+  "pe_combos": {
+    "process_injection": [
+      "CreateRemoteThread",
+      "VirtualAllocEx",
+      "WriteProcessMemory"
+    ],
+    "download_exec": [
+      "ShellExecute",
+      "ShellExecuteEx",
+      "URLDownloadToFile",
+      "WinExec"
+    ]
+  }
+}

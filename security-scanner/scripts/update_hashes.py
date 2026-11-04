@@ -16,7 +16,8 @@ Security Scanner - 恶意哈希库维护工具
 说明:
     - 默认只写本地文件，不访问网络。
     - --from-url 仅在用户明确要求在线更新时使用；只下载哈希清单，不下载样本。
-    - 扫描时 scan.py 会合并：内置 EICAR + hashes.json + hash-sources.json + hash-sources/*.json。
+    - 扫描时 scan.py 会合并：hashes.json + hash-sources.json + hash-sources/*.json。
+    - 工具不内置任何样本哈希，签名库完全来自 references/ 下的数据文件。
 """
 
 from __future__ import annotations
@@ -36,7 +37,6 @@ HASHES_PATH = REFERENCES_DIR / "hashes.json"
 SOURCES_DIR = REFERENCES_DIR / "hash-sources"
 
 SHA256_RE = re.compile(r"\b[a-fA-F0-9]{64}\b")
-EICAR_SHA256 = "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f"
 
 
 def utc_now():
@@ -48,14 +48,7 @@ def empty_db():
         "version": 1,
         "updated_at": utc_now(),
         "source": "local",
-        "malicious_hashes": [
-            {
-                "sha256": EICAR_SHA256,
-                "name": "EICAR-Test-File",
-                "description": "标准防病毒测试文件",
-                "added_at": utc_now(),
-            }
-        ],
+        "malicious_hashes": [],
     }
 
 

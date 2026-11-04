@@ -100,23 +100,19 @@
 ### 哈希库来源与格式
 
 扫描启动时加载（后者覆盖前者）：
-1. **内置 fallback**（`scan.py::DEFAULT_MALICIOUS_HASHES`）：真实 EICAR 测试样本
-2. **外置库**（`references/hashes.json`）：与内置合并
-3. **哈希源**（`references/hash-sources.json`，本地可选 `references/hash-sources/*.json`）：第三方清单，扫描时自动合并
+1. **外置库**（`references/hashes.json`）：随包分发的主库，默认不含任何样本哈希
+2. **哈希源**（`references/hash-sources.json`，本地可选 `references/hash-sources/*.json`）：第三方清单，扫描时自动合并
 
-内置 EICAR SHA256（真实值）：
-```
-275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f
-```
+代码内不内置任何样本哈希；库为空时结果会在 `limitations` 中注明"本次未做哈希比对"，不会默认为无风险。
 
 外置库格式：
 ```json
 {
   "malicious_hashes": [
     {
-      "sha256": "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f",
-      "name": "EICAR-Test-File",
-      "description": "标准防病毒测试文件"
+      "sha256": "<64 位小写 SHA256>",
+      "name": "<样本名>",
+      "description": "<可选说明>"
     }
   ]
 }
@@ -139,6 +135,10 @@
 对 JS、PS1、PSM1、VBS、VBE、BAT、CMD、PY、SH、HTA、WSF、WSH、REG 文件进行内容扫描。
 文件读取上限 5MB，超限记录"文件过大，跳过内容分析"。
 编码回退：UTF-8 → GBK → UTF-16 → Latin-1。
+
+本章各表是**规则说明文档**；实际生效的模式以 `references/detection-rules.json` 的 `script_rules` 为准，
+增删规则改那个文件即可，不需要动 `scripts/scan.py`。规则文件缺失或解析失败时，脚本类文件的
+`checks.script_analysis` 会记为 `failed`，并写入 `errors`，不会被当成"已完成检测"。
 
 ### 4.1 JavaScript
 

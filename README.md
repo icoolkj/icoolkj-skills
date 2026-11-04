@@ -86,6 +86,18 @@ python tools/build_skills.py --check    # 只校验，不写包
 
 `config.json` 是运行时配置（`analyze_material.py` 默认读取 `<skill>/config.json`），必须留在技能根目录，不要挪进 `references/`。
 
+### 上传前安全自检
+
+```bash
+python tools/audit_safety.py                       # 检查全部技能（按打包口径，忽略 tests/ 等）
+python tools/audit_safety.py security-scanner      # 只查一个
+python tools/audit_safety.py --zip dist/x.zip      # 直接查成品包
+```
+
+平台会对上传包做基础安全检测（多引擎 + 静态规则）。自检把容易被误判的内容分级列出：可执行代码里出现病毒特征词、注入类 API 名、编码命令执行、反序列化加载等为高危；文档中的同类特征串、外部地址等为中危。**高危存在时退出码为 1**，可挂到 CI 或提交前钩子。
+
+设计原则：检测规则、样本特征这类"看起来像恶意代码"的字符串一律放 `references/*.json` 数据文件，不要写进 `scripts/*.py`——脚本里出现这类字面量最容易被引擎判成 HackTool。
+
 ## 运行时适配
 可无缝对接 DeepSeek Harness、LM Studio、私有化 Agent 调度平台，支持本地离线模型调用。
 
