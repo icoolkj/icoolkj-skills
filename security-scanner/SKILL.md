@@ -15,10 +15,11 @@ allowed-tools: Bash(python:*)
 ## 核心原则
 
 1. **只检测不清除**：本工具仅扫描和报告，不删除、不隔离、不修改任何文件。
-2. **多维度检测**：结合文件哈希、文件头签名、脚本内容模式、文件名特征等多维度判断。
+2. **多维度检测**：结合文件哈希、文件头签名、脚本内容模式、文件名特征、PE 导入表等多维度判断。
 3. **分类清晰**：每个文件归类为安全、可疑、恶意或未能检查，附带具体原因。
 4. **进度可见**：扫描过程中实时输出已扫描文件数、耗时和当前目标。
 5. **策略可选**：快速/标准/深度三种策略，适配不同场景和时间预算。
+6. **全策略递归**：三档策略均递归子目录，差异仅在检测深度。
 
 ## 何时触发
 
@@ -39,31 +40,53 @@ Agent 根据用户意图确定三个核心参数：
 |------|------|--------|
 | 扫描目标 | 文件路径 / 文件夹路径 / 磁盘根目录 | 用户指定 |
 | 扫描策略 | quick / standard / deep | standard |
-| 文件过滤 | exe,dll,msi,js,ps1,vbs,bat,cmd,py,sh,zip,rar,7z,lnk,scr,com | 全部类型 |
+| 文件过滤 | exe,dll,msi,js,ps1,vbs,bat,cmd,py,sh,zip,rar,7z,lnk,scr,com,hta | 全部类型 |
 
 策略说明：
-- **quick**：仅扫描文件名特征和文件头签名，不读取文件内容，速度最快
-- **standard**：quick + 计算文件哈希 + 脚本内容模式匹配，平衡速度与深度
-- **deep**：standard + 解压压缩包检查内部文件 + 递归扫描所有子目录 + 可执行文件结构分析
+- **quick**：文件名特征 + 文件头签名，不读取文件内容，速度最快
+- **standard**：quick + 文件哈希 + 脚本内容模式匹配，平衡速度与深度
+- **deep**：standard + 压缩包内检（ZIP 完整，RAR/7Z 仅提示）+ 可执行文件 PE 导入表解析 + LNK 目标检测
 
 如果用户未明确指定策略，根据目标规模自动选择：单文件 → quick，文件夹 → standard，磁盘/大型目录 → standard（提示用户可切换 deep）。
 
 ### Phase 2：执行扫描
 
 ```bash
-python scripts/scan.py --target <路径> --strategy <quick|standard|deep> --filter <扩展名列表> --output <结果JSON路径>
+python scripts/scan.py \
+  --target <路径> \
+  --strategy <quick|standard|deep> \
+  [--filter <扩展名列表>] \
+  [--exclude <正则>]... \
+  [--jobs N] \
+  [--output <结果JSON路径>] \
+  [--quiet] [--dry-run] [--version]
 ```
+
+常用参数：
+
+| 参数 | 说明 | 默认 |
+|------|------|------|
+| `--target` | 扫描目标路径 | 必填（除 --version） |
+| `--strategy` | quick / standard / deep | standard |
+| `--filter` | 逗号分隔的扩展名列表 | 全部 |
+| `--exclude` | 额外排除正则，可重复 | 内置排除 node_modules/.git/WinSxS 等 |
+| `--jobs` | 并发线程数 | 1（I/O 密集可调至 4-8） |
+| `--output` | 结果 JSON 输出路径 | 仅 stdout |
+| `--quiet` | 不输出进度 | false |
+| `--dry-run` | 仅列出待扫描文件 | false |
+| `--version` | 显示版本 | - |
 
 脚本输出 JSON 格式结果到 stdout 和指定文件，进度信息输出到 stderr。
 
 扫描引擎按以下顺序对每个文件执行检测（具体规则见 `references/threat-detection-rules.md`）：
 
-1. **文件名特征检测**：双扩展名、可疑命名模式、伪装扩展名
-2. **文件头签名检测**：文件实际类型与扩展名是否匹配
-3. **文件哈希检测**：计算 SHA256，与已知恶意哈希库比对
-4. **脚本内容分析**：JS/PS1/VBS/BAT/PY 中的危险模式（编码执行、下载行为、注册表操作等）
-5. **压缩包内容检查**（deep 策略）：列出压缩包内文件，检查内部是否有可疑文件
-6. **可执行文件结构分析**（deep 策略）：检查 PE 头、导入表中的可疑 API
+1. **文件名特征检测**：双扩展名（含多段）、可疑命名（强/弱信号）、伪装扩展名
+2. **文件头签名检测**：文件实际类型与扩展名是否匹配（含 .docx/.xlsx/.jar 映射至 ZIP 签名）
+3. **文件哈希检测**：计算 SHA256，与内置 + `references/hashes.json` 合并的哈希库比对
+4. **脚本内容分析**：JS/PS1/PSM1/VBS/VBE/BAT/CMD/PY/SH/HTA/WSF/WSH/REG 中的危险模式
+5. **压缩包内容检查**（deep）：列出 ZIP 内部文件，检查是否有可执行/脚本/双扩展名文件；RAR/7Z 仅提示"依赖外部工具"
+6. **PE 导入表分析**（deep）：真实解析 DOS→PE→OptionalHeader→Section Table→Import Descriptor→Thunk 链，检测进程注入/下载执行组合
+7. **LNK 目标检测**（deep）：校验 Shell Link 签名并检查目标字符串中是否包含 powershell/cmd/mshta/网络路径
 
 ### Phase 3：生成报告
 
@@ -74,13 +97,13 @@ python scripts/report.py --input <结果JSON路径> --format <md|html> --output 
 报告包含五个区域：
 
 1. **扫描概要**：目标、策略、耗时、文件总数
-2. **安全文件**：未发现风险的文件列表
+2. **安全文件**：未发现风险的文件列表（HTML 报告中折叠展示）
 3. **可疑文件**：存在风险特征但无法确认恶意的文件，附带可疑原因
-4. **恶意文件**：高度确信为恶意的文件，附带判定依据
-5. **未能检查**：因权限、格式、损坏等原因无法扫描的文件，附带原因
+4. **恶意文件**：高度确信为恶意的文件，附带完整判定依据
+5. **未能检查**：因权限、格式、损坏、超限等原因无法扫描的文件，附带原因
 
 Agent 在呈现报告时：
-- 恶意文件优先展示，红色标注
+- 恶意文件优先展示，红色标注，展示全部 findings
 - 可疑文件次优先，黄色标注
 - 安全文件可折叠或摘要展示
 - 未能检查文件列出原因，建议用户手动检查
@@ -90,8 +113,8 @@ Agent 在呈现报告时：
 | 用户场景 | 推荐策略 | 文件过滤 |
 |----------|----------|----------|
 | 检查单个 EXE | quick | exe |
-| 扫描下载目录 | standard | 全部类型 |
-| 扫描 U 盘 | standard | exe,dll,msi,lnk,scr,com,js,ps1,vbs,bat |
+| 扫描下载目录 | standard | exe,dll,msi,js,ps1,vbs,bat,zip,rar,7z,lnk,scr,hta,docm,xlsm |
+| 扫描 U 盘 | standard | exe,dll,msi,lnk,scr,com,js,ps1,vbs,bat,hta |
 | 检查 ZIP 内危险文件 | deep | zip,rar,7z |
 | 排查 Python 项目可疑脚本 | standard | py,sh,bat,ps1,js |
 | 全盘深度扫描 | deep | 全部类型 |
@@ -107,7 +130,7 @@ Agent 在呈现报告时：
 以下操作**优先**：
 - 只读访问目标文件
 - 所有检测在本地完成
-- 哈希值比对使用内置规则库，不依赖网络
+- 哈希值比对使用内置 + 本地外置规则库，不依赖网络
 - 压缩包检查只读取文件列表，不解压到磁盘
 
 ## 资源导航
@@ -117,9 +140,12 @@ Agent 在呈现报告时：
 | 威胁检测规则 | `references/threat-detection-rules.md` | 各检测维度的具体规则和判定标准 |
 | 扫描策略详解 | `references/scan-strategies.md` | 三种策略的检测项、适用场景和性能预期 |
 | 文件类型风险矩阵 | `references/file-type-risk-matrix.md` | 各文件类型的风险等级和检测重点 |
+| 恶意哈希库 | `references/hashes.json` | 可扩展的 SHA256 恶意样本库（与内置 fallback 合并） |
 | 扫描脚本 | `scripts/scan.py` | 主扫描引擎 |
 | 报告脚本 | `scripts/report.py` | 报告生成器 |
 
 ## 依赖
 
-Python 3.8+，脚本仅使用标准库（hashlib, zipfile, json, os, struct 等）。不安装任何第三方依赖。
+Python 3.8+，脚本仅使用标准库（hashlib, zipfile, json, os, struct, html 等）。不安装任何第三方依赖。
+
+RAR/7Z 内检需外部工具（`unrar` / `7z`），当前版本仅提示"依赖外部工具，未解析"，不阻塞扫描。
