@@ -137,25 +137,67 @@ def fetch_url(url):
         raise InputReadError(f"URL抓取失败: {e}") from e
 
 
+def _decode_pdf_stream(stream_data):
+    """解压 PDF 内容流；覆盖 FlateDecode 与 ASCII85+FlateDecode 两种常见编码。"""
+    import base64
+    import zlib
+    data = stream_data
+    if data.endswith(b'~>'):
+        try:
+            return zlib.decompress(base64.a85decode(data[:-2]))
+        except Exception:
+            pass
+    try:
+        return zlib.decompress(data)
+    except Exception:
+        return data
+
+
+def read_pdf_stream(path):
+    """零依赖 PDF 文本抽取兜底：只覆盖未加密、字体未子集化的常见 PDF。
+
+    依赖 pypdf / pdftotext 时优先走它们；本函数用于两者都缺失时尽量拿到正文，
+    拿不到就返回空串，由上层决定报错或转 OCR。
+    """
+    with open(path, 'rb') as f:
+        raw = f.read()
+    parts = []
+    for stream_data in re.findall(b'stream\r?\n(.*?)endstream', raw, re.DOTALL):
+        decoded = _decode_pdf_stream(stream_data.rstrip(b'\r\n'))
+        if b'Tj' not in decoded and b'TJ' not in decoded:
+            continue
+        chunks = re.findall(b'\\(([^)]*)\\)\\s*Tj', decoded)
+        for arr in re.findall(b'\\[([^\\]]*)\\]\\s*TJ', decoded):
+            chunks.extend(re.findall(b'\\(([^)]*)\\)', arr))
+        for chunk in chunks:
+            try:
+                parts.append(chunk.decode('latin-1'))
+            except Exception:
+                pass
+    return ' '.join(parts).strip()
+
+
 def read_file(path):
     ext = os.path.splitext(path)[1].lower()
     try:
         if ext == '.pdf':
+            text, parser = '', ''
             try:
                 from pypdf import PdfReader
-                pages = PdfReader(path).pages
-                text = '\n\n'.join(page.extract_text() or '' for page in pages)
+                text = '\n\n'.join(page.extract_text() or '' for page in PdfReader(path).pages)
+                parser = 'pypdf'
             except Exception:
-                if not shutil.which('pdftotext'):
-                    raise InputReadError("PDF解析失败：需要 pypdf 或 pdftotext")
+                text = ''
+            if not text.strip() and shutil.which('pdftotext'):
                 proc = subprocess.run(['pdftotext', '-enc', 'UTF-8', path, '-'],
                                       capture_output=True, text=True, timeout=60)
-                if proc.returncode:
-                    raise InputReadError(proc.stderr.strip() or "pdftotext 解析失败")
-                text = proc.stdout
+                if proc.returncode == 0:
+                    text, parser = proc.stdout, 'pdftotext'
+            if not text.strip():
+                text, parser = read_pdf_stream(path), 'pdf-stream'
             if not text.strip():
                 if not shutil.which('tesseract') or not shutil.which('pdftoppm'):
-                    raise InputReadError("PDF没有可提取文本；扫描件 OCR 依赖缺失（需要 tesseract 与 pdftoppm）")
+                    raise InputReadError("PDF没有可提取文本；可安装 pypdf 或 pdftotext，扫描件另需 tesseract 与 pdftoppm")
                 with tempfile.TemporaryDirectory() as work:
                     prefix = os.path.join(work, 'page')
                     render = subprocess.run(['pdftoppm', '-png', '-r', '200', path, prefix], capture_output=True, text=True, timeout=120)
@@ -171,7 +213,11 @@ def read_file(path):
                     if not text.strip():
                         raise InputReadError("扫描件 PDF OCR 未识别到文字；请人工确认")
                     return text, 'pdf_scanned', {"completeness": "partial", "parser": "pdftoppm+tesseract", "needs_review": True}
-            return text, 'pdf', {"completeness": "full", "parser": "pypdf/pdftotext"}
+            completeness = "full" if parser in ('pypdf', 'pdftotext') else "partial"
+            meta = {"completeness": completeness, "parser": parser}
+            if completeness == "partial":
+                meta["needs_review"] = True
+            return text, 'pdf', meta
         if ext == '.docx':
             with zipfile.ZipFile(path) as archive:
                 xml = archive.read('word/document.xml')

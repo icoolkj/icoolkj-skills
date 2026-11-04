@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "_comment": "共享脚本主从关系。每个技能都要能独立打包上传，所以文件各存一份，但内容以 master 为准。改脚本先改 master，再跑 tools/sync_shared_scripts.py --fix。",
+  "groups": [
+    {
+      "id": "note-intel-trio",
+      "description": "note-intel / self-media / xhs 三个内容类技能的同源脚本，以 xhs-content-studio 的实现为最新主版",
+      "master": "xhs-content-studio",
+      "members": [
+        "note-intel",
+        "self-media-content-organizer",
+        "xhs-content-studio"
+      ],
+      "shared": [
+        "analyze_material.py",
+        "extract_candidates.py",
+        "scan_risks.py"
+      ]
+    },
+    {
+      "id": "note-intel-monorepo",
+      "description": "note-intel 与 self-media 共用的 NoteIntel 分析/评分/对比脚本，以 note-intel 为主版",
+      "master": "note-intel",
+      "members": [
+        "note-intel",
+        "self-media-content-organizer"
+      ],
+      "shared": [
+        "compare_packs.py",
+        "score_topics.py"
+      ]
+    },
+    {
+      "id": "data-report",
+      "description": "两个数据分析报告技能的确定性计算与组装配件，以 data-report-creator 为主版",
+      "master": "data-report-creator",
+      "members": [
+        "data-report-agent-skill",
+        "data-report-creator"
+      ],
+      "shared": [
+        "composer.py",
+        "data_loader.py",
+        "styler.py"
+      ]
+    }
+  ],
+  "divergent_notes": {
+    "validate_json_pack.py": "三版契约严格度不同：xhs 强制 source_ids，self-media 拆分结构层与语义层，note-intel 为最简结构校验。收敛需先统一 pack-schema，暂按技能各自维护。",
+    "validate_pack.py": "同名不同责：note-intel / self-media 校验素材包 Markdown（引用、事实 ID、配额），xhs 校验小红书文案 + 卡片工作台。不要互相覆盖。",
+    "run_pipeline.py": "同名不同流水线：self-media 是内容中台预处理，xhs 是小红书预处理（被 run_xhs_pipeline 调用），data-report 两者是报告流水线。",
+    "charts.py": "agent 版包含模型参与后的图表修复分支，creator 版是纯确定性渲染。",
+    "compliance.py": "agent 版增加交互式修复建议字段。",
+    "exporter.py": "两版导出模板与字体处理不同。",
+    "planner.py": "agent 版按业务目标生成章节，creator 版按固定风格模板生成。",
+    "export_pack.py": "self-media 版多出扩展字段渲染（风险/未决问题/冲突块），note-intel 版保持单来源简化实现。",
+    "merge_packs.py": "self-media 版重写多来源 source_id（P1_/P2_ 前缀）并合并 sources 数组，note-intel 版按单来源处理；统一前需让 note-intel 的 pack schema 支持 sources。"
+  }
+}

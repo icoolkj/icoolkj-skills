@@ -184,6 +184,35 @@ def build_quotes_md(quotes):
     return '\n'.join(lines)
 
 
+def build_optional_section(heading, items, text_keys, detail_keys):
+    """渲染可选区块。没有内容时返回空串，交给模板占位符替换为空白，
+    避免 {viewpoints_section} 这类占位符残留在成品里被校验判为失败。"""
+    if not items:
+        return ""
+    lines = []
+    for index, item in enumerate(items, 1):
+        if isinstance(item, str):
+            lines.append(f"{index}. {item}")
+            continue
+        if not isinstance(item, dict):
+            continue
+        text = ""
+        for key in text_keys:
+            if item.get(key):
+                text = str(item[key])
+                break
+        lines.append(f"{index}. {text}")
+        for key, label in detail_keys:
+            value = item.get(key)
+            if value:
+                if isinstance(value, list):
+                    value = "、".join(map(str, value))
+                lines.append(f"   - {label}：{value}")
+    if not lines:
+        return ""
+    return f"\n---\n\n## {heading}\n\n" + "\n".join(lines)
+
+
 def build_risks_md(risks):
     if not risks:
         return None
@@ -235,6 +264,27 @@ def export_md(content_data, template_path, output_path):
     if risks_md:
         risks_section = f"\n---\n\n## 风险提示\n\n{risks_md}"
 
+    optional_sections = {
+        "viewpoints_section": build_optional_section(
+            "原文观点", content_data.get("viewpoints", []), ("text", "claim"),
+            (("speaker_or_owner", "发言人"), ("source_id", "来源"),
+             ("location", "定位"), ("quote", "原文"))),
+        "inferences_section": build_optional_section(
+            "可标注推断", content_data.get("inferences", []), ("text", "claim"),
+            (("based_on", "依据"), ("reasoning", "推理"),
+             ("certainty", "确定性"), ("disclaimer", "标注"))),
+        "gaps_section": build_optional_section(
+            "核查缺口", content_data.get("verification_gaps", []), ("question", "text"),
+            (("why_it_matters", "为何重要"), ("related_facts", "关联事实"),
+             ("suggested_check", "建议核查"))),
+        "conflicts_section": build_optional_section(
+            "来源冲突", content_data.get("conflicts", []), ("difference", "field", "text"),
+            (("field", "字段"), ("source_ids", "来源"), ("statements", "各方表述"),
+             ("impact", "影响"), ("resolution", "处理"))),
+        "next_actions_section": build_optional_section(
+            "下一步动作", content_data.get("next_actions", []), ("text", "action"), ()),
+    }
+
     result = template
     result = result.replace("{source}", escape_md(content_data.get("source", "")))
     result = result.replace("{mode}", content_data.get("mode", ""))
@@ -246,6 +296,10 @@ def export_md(content_data, template_path, output_path):
     result = result.replace("{topics}", topics_md)
     result = result.replace("{quotes_section}", quotes_section)
     result = result.replace("{risks_section}", risks_section)
+    for placeholder, section in optional_sections.items():
+        result = result.replace("{" + placeholder + "}", section)
+    # 兜底：自定义模板里可能还有未实现的 *_section 占位符，清空而不是留痕
+    result = re.sub(r"\{[a-z_]+_section\}", "", result)
 
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(result)

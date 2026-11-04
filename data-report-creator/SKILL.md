@@ -2,7 +2,7 @@
 name: data-report-creator
 description: "人工配置驱动的数据分析报告生成工具。用户通过命令行生成并手动编辑 report.json，再由本地 Python 流水线完成合规检查、图表渲染和 Markdown/HTML/PDF 导出。适用于希望直接控制配置、手工调整章节或使用 CLI 生成 CSV/Excel/JSON 数据报告的场景；不用于由模型通过自然语言主导报告规划的交互式分析。"
 agent_created: true
-version: 1.2.0
+version: 1.2.1
 display_name: 数据分析报告生成工具
 display_name_en: Data Report Creator
 description_zh: 人工配置驱动的数据分析报告生成工具。用户通过命令行生成并手动编辑 report.json，再由本地 Python 流水线完成合规检查、图表渲染和 Markdown/HTML/PDF 导出。适用于希望直接控制配置、手工调整章节或使用 CLI 生成 CSV/Excel/JSON 数据报告的场景；不用于由模型通过自然语言主导报告规划的交互式分析。
@@ -23,24 +23,25 @@ metadata:
 
 ## 快速开始
 
+以下命令都在 **skill 目录内** 执行，路径相对于 skill 目录：
+
 ```bash
-cd skills/data-report-creator
 pip install -r requirements.txt
 
 # 1. 从数据文件创建报告规划（会列出10种风格供用户选择）
-python scripts/planner.py "data/sales.csv" --output ../../work/my-report/report.json --style corporate
+python scripts/planner.py <数据文件.csv|.xlsx|.json> --output work/my-report/report.json --style corporate
 
 # 2. 编辑 report.json：确认每节 style 是用户选定的风格，填写 content
 
 # 3. 合规检查
-python scripts/compliance.py ../../work/my-report/report.json
+python scripts/compliance.py work/my-report/report.json
 
 # 4. 一键生成（自动生成图表→组装内容→导出 Markdown/HTML/PDF）
-python scripts/run_pipeline.py ../../work/my-report/report.json --work-dir ../../work/my-report
+python scripts/run_pipeline.py work/my-report/report.json --work-dir work/my-report
 
 # 5. 导出 PDF（需先安装 PDF 库）
 pip install reportlab
-python scripts/run_pipeline.py ../../work/my-report/report.json --work-dir ../../work/my-report --formats markdown html pdf
+python scripts/run_pipeline.py work/my-report/report.json --work-dir work/my-report --formats markdown html pdf
 ```
 
 输出：`report.md` + `report.html` + `report.pdf`（可选）+ `charts/` 图表目录。

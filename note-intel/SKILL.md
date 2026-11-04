@@ -1,12 +1,12 @@
 ---
 name: note-intel
-description: 自媒体内容情报与图文策划 Skill。用于把文章、报告、网页、采访、帖子或多份资料转化为结构化、可核对、可继续创作的内容素材包；支持动态篇幅与信息密度评估、事实/观点/推断分层、证据链、风险扫描、选题评分、多素材合并、冲突对比和图文策划。绝不虚构，不为满足数量强行填充。
+description: 自媒体内容情报与图文策划 Skill。用于把文章、报告、网页、采访、帖子或多份资料转化为结构化、可核对、可继续创作的内容素材包；支持动态篇幅与信息密度评估、事实/观点/推断分层、证据链、风险扫描、选题评分、多素材合并、冲突对比和图文策划。绝不虚构，不为满足数量强行填充。不用于多平台适配改写或视觉资产制作，那些场景使用 self-media-content-organizer；不用于小红书轮播卡片与发布，那类场景使用 xhs-content-studio。
 agent_created: true
-version: 1.0.0
+version: 1.0.2
 display_name: 笔记情报：内容情报与图文策划
 display_name_en: Note Intel Content Intelligence
-description_zh: 自媒体内容情报与图文策划 Skill。用于把文章、报告、网页、采访、帖子或多份资料转化为结构化、可核对、可继续创作的内容素材包；支持动态篇幅与信息密度评估、事实/观点/推断分层、证据链、风险扫描、选题评分、多素材合并、冲突对比和图文策划。绝不虚构，不为满足数量强行填充。
-description_en: A skill for converting articles, reports, web pages, interviews, posts or multiple sources into structured, verifiable content packs that are ready for further creation. Covers dynamic length and information density assessment, layering of facts, opinions and inferences, evidence chains, risk scanning, topic scoring, multi-source merging, conflict comparison and visual planning. Never fabricates content and never pads output to meet quotas.
+description_zh: 自媒体内容情报与图文策划 Skill。用于把文章、报告、网页、采访、帖子或多份资料转化为结构化、可核对、可继续创作的内容素材包；支持动态篇幅与信息密度评估、事实/观点/推断分层、证据链、风险扫描、选题评分、多素材合并、冲突对比和图文策划。绝不虚构，不为满足数量强行填充。不用于多平台适配改写或视觉资产制作，那些场景使用 self-media-content-organizer；不用于小红书轮播卡片与发布，那类场景使用 xhs-content-studio。
+description_en: A skill for converting articles, reports, web pages, interviews, posts or multiple sources into structured, verifiable content packs that are ready for further creation. Covers dynamic length and information density assessment, layering of facts, opinions and inferences, evidence chains, risk scanning, topic scoring, multi-source merging, conflict comparison and visual planning. Never fabricates content and never pads output to meet quotas. Not intended for multi-platform adaptation or visual asset production (use self-media-content-organizer), nor for Xiaohongshu carousel cards and publishing (use xhs-content-studio).
 author: icoolkj
 license: MIT
 metadata:
@@ -31,6 +31,14 @@ metadata:
 ## 何时触发
 
 用户提供文章、网页、PDF/文档、采访记录、社交媒体帖子、研究资料，要求做摘要、事实提炼、情报分析、选题、图文策划、素材整理、对比或多素材合并时使用。若用户只要求润色成稿，不要自动套用完整情报流程，除非需要核对来源。
+
+## 何时不触发
+
+- 用户要**同一素材多平台改写**（公众号/小红书/知乎/视频号差异化文案）、平台适配或视觉资产清单 → `self-media-content-organizer`。
+- 用户要**小红书 3:4 轮播卡片、可编辑视觉工作台或发布** → `xhs-content-studio`。
+- 用户要**CSV/Excel 数据分析报告** → `data-report-agent-skill` 或 `data-report-creator`。
+
+本 Skill 的产出一律停在"素材包 + 选题与图文骨架"，不产出平台成品文案，也不产出卡片成品。
 
 ## 标准工作流
 
@@ -105,9 +113,10 @@ python scripts/scan_risks.py --input <清洗后文本文件>
 
 ### 6. 组装、校验和导出
 
-推荐 JSON 顶层结构见 `references/pack-schema.md`。然后导出：
+推荐 JSON 顶层结构见 `references/pack-schema.md`。导出前先过 JSON 契约校验，再导出：
 
 ```bash
+python scripts/validate_json_pack.py --pack pack.json
 python scripts/export_pack.py --content pack.json \
   --template-md assets/content-pack-template.md \
   --template-html assets/preview-template.html \
@@ -152,7 +161,22 @@ python scripts/compare_packs.py --pack-a pack_a.json --pack-b pack_b.json
 - `references/extraction-guide.md`：事实识别、定位、数据精度和事实/观点/推断边界。
 - `references/topic-formulas.md`：选题、图文结构、受众与形式匹配。
 - `references/compliance-rules.md`：风险、引用和发布前核查。
-- `scripts/`：分析、候选提取、风险扫描、导出、校验、评分、合并、对比。
+
+## 脚本清单
+
+| 脚本 | 用途 | 关键参数 |
+|------|------|----------|
+| `scripts/analyze_material.py` | 素材分析，输出画像与信息密度 | `--input` `--output` `--config` |
+| `scripts/extract_candidates.py` | 事实候选提取 | `--input` `--output` `--quota` |
+| `scripts/scan_risks.py` | 风险扫描 | `--input` `--output` `--source-count` |
+| `scripts/score_topics.py` | 选题评分 | `--pack` `--output` |
+| `scripts/validate_json_pack.py` | JSON 契约校验（结构 + 语义，导出前门禁） | `--pack` |
+| `scripts/export_pack.py` | 导出 Markdown/HTML/JSON | `--content` `--template-md` `--template-html` `--output-dir` `--formats` |
+| `scripts/validate_pack.py` | 成品包校验（引用、事实 ID、占位符、选题证据） | `--pack` `--quotas` `--source` |
+| `scripts/merge_packs.py` | 多素材包合并 | `--packs` `--output` |
+| `scripts/compare_packs.py` | 双包对比 | `--pack-a` `--pack-b` |
+
+导出前先过 `validate_json_pack.py`，导出后再过 `validate_pack.py`；前者管结构，后者管内容真实性。
 
 ## 依赖
 

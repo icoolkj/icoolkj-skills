@@ -2,7 +2,7 @@
 name: xhs-content-studio
 description: 事实驱动的小红书内容与轮播卡片工作室。用于把原始文字、报告、网页、PDF、DOCX 或图片整理成可追溯的事实素材包，并根据文章事实与信息密度生成自适应页数的3:4卡片文案、可编辑视觉工作台和PNG导出；支持在用户明确确认后通过浏览器辅助发布到小红书。
 agent_created: true
-version: 1.0.0
+version: 1.0.2
 display_name: 小红书内容与卡片工作室
 display_name_en: XHS Content Studio
 description_zh: 事实驱动的小红书内容与轮播卡片工作室。用于把原始文字、报告、网页、PDF、DOCX 或图片整理成可追溯的事实素材包，并根据文章事实与信息密度生成自适应页数的3:4卡片文案、可编辑视觉工作台和PNG导出；支持在用户明确确认后通过浏览器辅助发布到小红书。
@@ -222,9 +222,24 @@ plan → generated → checked → approved
 - `references/compliance-rules.md`：风险、来源和发布核查
 - `references/extraction-guide.md`：事实提取和证据定位
 - `references/quality-evaluation.md`：事实支持、选题独立性和风险评估
-- `scripts/`：预处理、事实门禁、小红书文案/卡片生成和 HTML/PNG 质量校验
 
 Skill 不替代事实核查、版权审核、平台规则或法律审核。
+
+## 8. 脚本清单
+
+| 脚本 | 用途 | 关键参数 |
+|------|------|----------|
+| `scripts/run_xhs_pipeline.py` | 一键工作流：预处理 → 校验 pack → 生成文案与卡片工作台（推荐入口） | `--input` `--pack` `--output-dir` |
+| `scripts/run_pipeline.py` | 确定性预处理管线，被 `run_xhs_pipeline.py` 内部调用 | `--input` `--output-dir` `--config` `--pack` |
+| `scripts/analyze_material.py` | 素材画像与信息密度分析 | `--input` `--output` `--config` |
+| `scripts/extract_candidates.py` | 事实候选提取 | `--input` `--output` `--quota` |
+| `scripts/scan_risks.py` | 风险扫描 | `--input` `--output` `--source-count` |
+| `scripts/validate_json_pack.py` | 事实门禁：JSON 契约的结构层与语义层校验 | `--pack` |
+| `scripts/build_xhs_from_pack.py` | 从已校验 pack 生成文案 + 自适应页数 3:4 卡片工作台 | `--pack` `--output-dir` |
+| `scripts/validate_pack.py` | 成品校验：文案（标题/页数/话题/违禁词）+ 工作台（离线自包含、玻璃世界、PNG 导出） | `<copy.md> [studio.html]` |
+| `scripts/visual_primitives.py` | 卡片视觉基础模块（库文件，由工作台构建时导入，不单独执行） | — |
+
+`visual_primitives.py` 是内部依赖，不提供 CLI；其余脚本均在 skill 目录内以 `python scripts/<name>.py` 调用。
 
 ---
 
