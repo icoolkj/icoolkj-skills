@@ -6,9 +6,10 @@
 |------|----------|----------|----------|
 | 文件名特征 | quick/standard/deep | 双扩展名、可疑命名、伪装扩展名 | 中 |
 | 文件头签名 | quick/standard/deep | 实际类型与扩展名是否匹配 | 高 |
-| 文件哈希 | standard/deep | SHA256 与已知恶意哈希比对 | 极高 |
+| 文件哈希 | standard/deep | SHA256 与已知恶意哈希比对（hashes.json + hash-sources） | 极高 |
 | 脚本内容模式 | standard/deep | 危险代码模式匹配（含组合语义） | 高 |
-| 压缩包内容 | deep | 内部文件列表检查（ZIP 完整） | 中 |
+| Office 宏流 | standard/deep | OOXML vbaProject.bin / OLE 宏流名 + 自动执行标记 | 高 |
+| 压缩包内容 | deep | ZIP 内部文件名 + 文件头签名（不解压到磁盘） | 中 |
 | PE 导入表分析 | deep | 真实导入表解析、API 组合 | 高 |
 | LNK 目标检测 | deep | Shell Link 签名 + 目标关键词 | 中 |
 
@@ -98,9 +99,10 @@
 
 ### 哈希库来源与格式
 
-扫描启动时加载：
+扫描启动时加载（后者覆盖前者）：
 1. **内置 fallback**（`scan.py::DEFAULT_MALICIOUS_HASHES`）：真实 EICAR 测试样本
-2. **外置库**（`references/hashes.json`）：与内置合并，同名以外部为准
+2. **外置库**（`references/hashes.json`）：与内置合并
+3. **哈希源目录**（`references/hash-sources/*.json`）：第三方清单，扫描时自动合并
 
 内置 EICAR SHA256（真实值）：
 ```
@@ -126,9 +128,11 @@
 
 ### 扩展哈希库
 
-Agent 可根据用户需求：
-- 向 `references/hashes.json` 追加条目
-- 或用 `--exclude` 之外的独立机制（如自行维护样本库）
+用 `scripts/update_hashes.py` 维护：
+- `--add <sha256> --name "..."` 追加单条
+- `--from-file hashes.txt` 导入文本清单（每行一个 SHA256，可用 `#` 注释和 `sha256 名称`）
+- `--rebuild` 把 `hash-sources/*.json` 合并进 `hashes.json`
+- `--from-url` 仅在用户明确要求时使用；只下载哈希清单，不下载样本
 
 ## 4. 脚本内容模式检测
 
@@ -232,23 +236,46 @@ VBE 为编码脚本，命中任意内容 → 中风险（需解码后复判）�
 - 匹配到 1+ "中" → 可疑
 - 无匹配 → 安全（在脚本维度）
 
-## 5. 压缩包内容检查（deep 策略）
+## 5. Office 宏流检测（standard / deep）
 
-### 5.1 ZIP
+对 `.doc/.xls/.ppt`（OLE）和 `.docx/.xlsx/.pptx/.docm/.xlsm/.pptm`（OOXML）检查是否携带 VBA。
+**不执行宏，不解压到磁盘。**
 
-读取 ZIP 内部文件列表（不解压），检查：
+### 5.1 OOXML
+
+读取 ZIP 名单，命中 `word/vbaProject.bin`、`xl/vbaProject.bin`、`ppt/vbaProject.bin` 即视为含宏。
+- `.docx/.xlsx/.pptx` 含宏流 → 可疑（扩展名声称无宏）
+- `.docm/.xlsm/.pptm` 含宏流 → 继续读 bin 内标记：
+  - `Auto_Open` / `Document_Open` / `Workbook_Open` 等自动执行 → 可疑
+  - 同时出现 `CreateObject` / `powershell` / `WScript.Shell` 等 → 恶意
+- 宏文档但找不到宏流 → 可疑（可能加密或结构异常）
+
+### 5.2 OLE 复合文档
+
+解析 CFB 目录流名（简化实现，不完整实现所有 OLE 变体）：
+- 流名含 `vba` / `_vba_project` / `macros` → 含宏，判可疑
+- 再在目录区搜索自动执行 / 危险 API 字节标记，组合命中 → 恶意
+- 解析失败 → `low` 提示，不升级为可疑（避免旧版正常表格误报）
+
+## 6. 压缩包内容检查（deep 策略）
+
+### 6.1 ZIP
+
+读取 ZIP 内部文件列表，并对每个条目**在内存中读取文件头**（默认前 1024 字节，条目数上限 500，单条目读取上限 8MB）：
 - 内部是否包含可执行文件（exe/dll/scr/com 等）
 - 内部文件是否有双扩展名
 - 内部是否包含脚本文件（js/ps1/vbs/bat/cmd/hta）
-- 压缩包内文件名是否可疑
+- 内部文件头与扩展名是否一致（例如 `photo.jpg` 实际是 MZ / PNG）
 
 判定：
 - 压缩包内含双扩展名文件 → 恶意
+- 压缩包内条目文件头为 MZ 且扩展名非可执行类型 → 恶意
 - 压缩包内含可执行文件 → 可疑
 - 压缩包内含脚本文件 → 可疑
-- 压缩包内只有文档/图片 → 安全（在该维度）
+- 压缩包内文件头与扩展名不一致（非 MZ） → 可疑
+- 压缩包内只有文档/图片且文件头匹配 → 安全（在该维度）
 
-### 5.2 RAR / 7Z
+### 6.2 RAR / 7Z
 
 当前版本**依赖外部工具**（`unrar` / `7z`），未内置解析。命中时记录 `low` 级别提示：
 ```
@@ -256,11 +283,11 @@ VBE 为编码脚本，命中任意内容 → 中风险（需解码后复判）�
 ```
 不阻塞扫描，不影响其他维度判定。若需完整内检，可安装 `unrar` / `p7zip` 后由 Agent 手动调用。
 
-## 6. PE 导入表分析（deep 策略）
+## 7. PE 导入表分析（deep 策略）
 
 对 EXE/DLL/SCR/SYS/CPL/OCX 文件执行真实 PE 结构解析（非字符串搜索）：
 
-### 6.1 解析流程
+### 7.1 解析流程
 
 ```
 DOS Header (e_lfanew @ 0x3C)
@@ -274,7 +301,7 @@ DOS Header (e_lfanew @ 0x3C)
   → IMAGE_IMPORT_BY_NAME (API 名称)
 ```
 
-### 6.2 导入表可疑 API
+### 7.2 导入表可疑 API
 
 | API | 风险 | 原因 |
 |-----|------|------|
@@ -290,7 +317,7 @@ DOS Header (e_lfanew @ 0x3C)
 | WinExec / ShellExecute / ShellExecuteEx | 中 | 执行程序 |
 | CreateProcess | 中 | 创建进程 |
 
-### 6.3 组合判定
+### 7.3 组合判定
 
 - 同时导入 `CreateRemoteThread + VirtualAllocEx + WriteProcessMemory`（≥2 个） → 恶意（进程注入）
 - 同时导入 `URLDownloadToFile + WinExec/ShellExecute/ShellExecuteEx`（≥2 个） → 可疑（下载执行）
@@ -298,7 +325,7 @@ DOS Header (e_lfanew @ 0x3C)
 - 导入表为空或解析失败 → 可疑（可能是加壳/损坏/伪装）
 - 文件超过 32MB 跳过 PE 分析 → medium 提示
 
-## 7. LNK 目标检测（deep 策略）
+## 8. LNK 目标检测（deep 策略）
 
 对 `.lnk` 文件执行：
 
@@ -313,29 +340,32 @@ DOS Header (e_lfanew @ 0x3C)
 
 ```
 1. 恶意哈希匹配 → 恶意（直接判定，不看其他）
-2. 文件头伪装（图片/文档扩展名 + MZ 签名） → 恶意
-3. 双扩展名伪装 → 恶意
-4. 匹配"极高"内容模式 → 恶意
-5. 脚本 tag 组合（download+execute 等） → 恶意
-6. 匹配 2+ "高"内容模式 → 恶意
-7. PE 进程注入 API 组合 → 恶意
+2. 文件头伪装（图片/文档扩展名 + MZ 签名，含 ZIP 内条目） → 恶意
+3. 双扩展名伪装（含 ZIP 内条目） → 恶意
+4. Office 宏 + 自动执行 + 危险 API 组合 → 恶意
+5. 匹配"极高"内容模式 → 恶意
+6. 脚本 tag 组合（download+execute 等） → 恶意
+7. 匹配 2+ "高"内容模式 → 恶意
+8. PE 进程注入 API 组合 → 恶意
 
 否则：
-8. 匹配 1 "高"内容模式 → 可疑
-9. 匹配 1+ "中"内容模式 → 可疑
-10. 文件头与扩展名不一致（非危险类型） → 可疑
-11. 可疑命名（强/弱信号） → 可疑
-12. 系统进程名在非系统目录 → 可疑
-13. 随机命名 + 可执行扩展名 → 可疑
-14. PE 下载执行组合 / 单个高风险 API → 可疑
-15. PE 导入表为空/异常 → 可疑
-16. ZIP 内可执行/脚本文件 → 可疑
-17. RAR/7Z 未解析 → low 提示（不升级为可疑）
-18. LNK 目标可疑 → 可疑
+9. 匹配 1 "高"内容模式 → 可疑
+10. 匹配 1+ "中"内容模式 → 可疑
+11. 文件头与扩展名不一致（非危险类型，含 ZIP 内） → 可疑
+12. 无宏扩展名的 OOXML 含 vbaProject.bin → 可疑
+13. OLE/宏文档含宏流或自动执行标记 → 可疑
+14. 可疑命名（强/弱信号） → 可疑
+15. 系统进程名在非系统目录 → 可疑
+16. 随机命名 + 可执行扩展名 → 可疑
+17. PE 下载执行组合 / 单个高风险 API → 可疑
+18. PE 导入表为空/异常 → 可疑
+19. ZIP 内可执行/脚本文件 → 可疑
+20. RAR/7Z 未解析 / OLE 解析失败 → low 提示（不升级为可疑）
+21. LNK 目标可疑 → 可疑
 
 否则：
-19. 所有维度通过 → 安全
-20. 扫描失败（权限/损坏/超限） → 未能检查（unchecked）
+22. 所有维度通过 → 安全
+23. 扫描失败（权限/损坏/超限） → 未能检查（unchecked）
 ```
 
 ### unchecked 判定条件

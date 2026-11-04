@@ -1,9 +1,13 @@
 {
+  "version": 1,
+  "updated_at": "2026-11-04T00:00:00Z",
+  "source": "local",
   "malicious_hashes": [
     {
       "sha256": "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f",
       "name": "EICAR-Test-File",
-      "description": "标准防病毒测试文件"
+      "description": "标准防病毒测试文件",
+      "added_at": "2026-11-04T00:00:00Z"
     }
   ]
 }

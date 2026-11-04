@@ -21,19 +21,25 @@ import re
 import struct
 import sys
 import time
+import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-TOOL_VERSION = "1.1.0"
+TOOL_VERSION = "1.2.0"
 SCHEMA_VERSION = "1.0"
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
 REFERENCES_DIR = SCRIPT_DIR.parent / "references"
+HASH_SOURCES_DIR = REFERENCES_DIR / "hash-sources"
 
 # 读取上限
 MAX_SCRIPT_SIZE = 5 * 1024 * 1024
 MAX_PE_SIZE = 32 * 1024 * 1024
 MAX_HEADER_SIZE = 1024
+MAX_ZIP_ENTRIES = 500
+MAX_ZIP_NEST_BYTES = 8 * 1024 * 1024
+MAX_OLE_PARSE_SIZE = 32 * 1024 * 1024
+MAX_OFFICE_ZIP_SCAN_BYTES = 64 * 1024 * 1024
 
 # ============================================================
 # 文件签名库
@@ -81,10 +87,31 @@ SAFE_EXTS = {
 
 SIG_EXT_WHITELIST = {
     ("zip", ".docx"), ("zip", ".xlsx"), ("zip", ".pptx"),
-    ("zip", ".docm"), ("zip", ".xlsm"),
+    ("zip", ".docm"), ("zip", ".xlsm"), ("zip", ".pptm"),
     ("zip", ".jar"), ("zip", ".apk"), ("zip", ".epub"),
     ("ole", ".doc"), ("ole", ".xls"), ("ole", ".ppt"), ("ole", ".msi"),
 }
+
+OOXML_EXTS = {".docx", ".xlsx", ".pptx", ".docm", ".xlsm", ".pptm"}
+OLE_OFFICE_EXTS = {".doc", ".xls", ".ppt"}
+MACRO_OOXML_EXTS = {".docm", ".xlsm", ".pptm"}
+OOXML_VBA_PATHS = (
+    "word/vbaproject.bin",
+    "xl/vbaproject.bin",
+    "ppt/vbaproject.bin",
+)
+OLE_MACRO_NAME_HINTS = (
+    "vba", "_vba_project", "vba_project_cur", "macros",
+)
+VBA_AUTO_MARKERS = (
+    b"Auto_Open", b"AutoOpen", b"Document_Open", b"Workbook_Open",
+    b"Auto_Close", b"Document_Close", b"AutoExec", b"Auto_Exec",
+)
+VBA_DANGEROUS_MARKERS = (
+    b"CreateObject", b"WScript.Shell", b"URLDownloadToFile",
+    b"powershell", b"cmd.exe", b"bitsadmin", b"wscript",
+    b"Shell(", b"Shell ", b"Call Shell",
+)
 
 STRONG_NAME_KEYWORDS = [
     "crack", "keygen", "injector", "bypass", "keylogger", "ransom",
@@ -312,6 +339,36 @@ def detect_file_type(header):
     return None
 
 
+def signature_mismatch_findings(name, header):
+    """根据文件名与文件头签名生成 findings，供磁盘文件和 ZIP 内条目共用。"""
+    findings = []
+    actual = detect_file_type(header)
+    ext = Path(name).suffix.lower()
+    if actual is None:
+        return findings, None
+    if (actual, ext) in SIG_EXT_WHITELIST:
+        return findings, actual
+    if ext in EXT_TO_SIG:
+        expected = EXT_TO_SIG[ext]
+        if actual != expected:
+            if actual == "exe_dll" and ext not in DANGEROUS_EXTS:
+                findings.append({
+                    "level": "malicious",
+                    "reason": f"文件头为可执行(MZ)，扩展名为 {ext}（伪装）",
+                })
+            else:
+                findings.append({
+                    "level": "suspicious",
+                    "reason": f"文件头类型({actual})与扩展名({ext})不一致",
+                })
+    elif actual == "exe_dll" and ext not in DANGEROUS_EXTS:
+        findings.append({
+            "level": "malicious",
+            "reason": f"文件头为可执行(MZ)，扩展名为 {ext or '(无)'}（伪装）",
+        })
+    return findings, actual
+
+
 def read_text_with_fallback(filepath, max_size):
     try:
         size = os.path.getsize(filepath)
@@ -416,28 +473,7 @@ def check_file_signature(filepath):
     header = read_file_header(filepath, MAX_HEADER_SIZE)
     if header is None:
         return findings, None, "读取文件头失败"
-    actual = detect_file_type(header)
-    ext = get_file_ext(filepath)
-
-    if actual is None:
-        return findings, None, None
-
-    if (actual, ext) in SIG_EXT_WHITELIST:
-        return findings, actual, None
-
-    if ext in EXT_TO_SIG:
-        expected = EXT_TO_SIG[ext]
-        if actual != expected:
-            if actual == "exe_dll" and ext not in DANGEROUS_EXTS:
-                findings.append({"level": "malicious",
-                                 "reason": f"文件头为可执行(MZ)，扩展名为 {ext}（伪装）"})
-            else:
-                findings.append({"level": "suspicious",
-                                 "reason": f"文件头类型({actual})与扩展名({ext})不一致"})
-    else:
-        if actual == "exe_dll" and ext not in DANGEROUS_EXTS:
-            findings.append({"level": "malicious",
-                             "reason": f"文件头为可执行(MZ)，扩展名为 {ext or '(无)'}（伪装）"})
+    findings, actual = signature_mismatch_findings(filepath, header)
     return findings, actual, None
 
 
@@ -475,32 +511,381 @@ def check_script_content(filepath):
     return findings, None
 
 
+def inspect_zipfile(zf, prefix="压缩包"):
+    """检查 ZIP：文件名特征 + 内部文件头（不解压到磁盘）。"""
+    findings = []
+    try:
+        names = zf.namelist()
+    except Exception:
+        return findings
+    if len(names) > MAX_ZIP_ENTRIES:
+        findings.append({
+            "level": "medium",
+            "reason": f"{prefix}内文件过多（{len(names)}），仅检查前 {MAX_ZIP_ENTRIES} 个",
+        })
+        names = names[:MAX_ZIP_ENTRIES]
+
+    for name in names:
+        if not name or name.endswith("/"):
+            continue
+        inner_ext = Path(name).suffix.lower()
+        d = is_double_extension(name)
+        if d:
+            findings.append({
+                "level": "malicious",
+                "reason": f"{prefix}内含双扩展名文件: {name}",
+            })
+        elif inner_ext in DANGEROUS_EXTS:
+            findings.append({
+                "level": "suspicious",
+                "reason": f"{prefix}内含可执行文件: {name}",
+            })
+        elif inner_ext in (".js", ".ps1", ".vbs", ".bat", ".cmd", ".hta"):
+            findings.append({
+                "level": "suspicious",
+                "reason": f"{prefix}内含脚本文件: {name}",
+            })
+
+        try:
+            info = zf.getinfo(name)
+        except KeyError:
+            continue
+        if info.file_size > MAX_ZIP_NEST_BYTES:
+            continue
+        try:
+            with zf.open(name, "r") as inner:
+                header = inner.read(MAX_HEADER_SIZE)
+        except Exception:
+            continue
+        sig_findings, actual = signature_mismatch_findings(name, header)
+        for item in sig_findings:
+            item["reason"] = f"{prefix}内 {name}: {item['reason']}"
+            findings.append(item)
+        if actual == "exe_dll" and inner_ext not in DANGEROUS_EXTS and not sig_findings:
+            findings.append({
+                "level": "malicious",
+                "reason": f"{prefix}内 {name}: 文件头为可执行(MZ)（伪装）",
+            })
+    return findings
+
+
 def check_archive_content(filepath):
     findings = []
     ext = get_file_ext(filepath)
     if ext == ".zip":
         try:
-            import zipfile
             with zipfile.ZipFile(filepath, "r") as zf:
-                names = zf.namelist()
+                findings.extend(inspect_zipfile(zf, prefix="压缩包"))
         except Exception:
             return findings
-        for name in names:
-            inner_ext = Path(name).suffix.lower()
-            if inner_ext in DANGEROUS_EXTS:
-                d = is_double_extension(name)
-                if d:
-                    findings.append({"level": "malicious",
-                                     "reason": f"压缩包内含双扩展名文件: {name}"})
-                else:
-                    findings.append({"level": "suspicious",
-                                     "reason": f"压缩包内含可执行文件: {name}"})
-            elif inner_ext in (".js", ".ps1", ".vbs", ".bat", ".cmd", ".hta"):
-                findings.append({"level": "suspicious",
-                                 "reason": f"压缩包内含脚本文件: {name}"})
     elif ext in (".rar", ".7z"):
         findings.append({"level": "low",
                          "reason": f"{ext} 压缩包内检依赖外部工具，当前未解析"})
+    return findings
+
+
+def _vba_payload_findings(blob, source):
+    findings = []
+    if not blob:
+        return findings
+    blob_l = blob.lower()
+    auto_hits = [m.decode("ascii") for m in VBA_AUTO_MARKERS if m.lower() in blob_l]
+    danger_hits = [m.decode("ascii") for m in VBA_DANGEROUS_MARKERS if m.lower() in blob_l]
+    if auto_hits and danger_hits:
+        findings.append({
+            "level": "malicious",
+            "reason": (
+                f"{source} 含自动执行宏({', '.join(auto_hits[:3])}) "
+                f"且调用危险 API({', '.join(danger_hits[:3])})"
+            ),
+        })
+    elif danger_hits:
+        findings.append({
+            "level": "suspicious",
+            "reason": f"{source} 宏代码含危险 API: {', '.join(danger_hits[:4])}",
+        })
+    elif auto_hits:
+        findings.append({
+            "level": "suspicious",
+            "reason": f"{source} 含自动执行宏: {', '.join(auto_hits[:3])}",
+        })
+    else:
+        findings.append({
+            "level": "suspicious",
+            "reason": f"{source} 存在 VBA 宏流",
+        })
+    return findings
+
+
+def inspect_ooxml_macros(zf, ext):
+    findings = []
+    names = []
+    try:
+        names = zf.namelist()
+    except Exception:
+        return findings
+    lower_map = {n.lower(): n for n in names}
+    vba_name = None
+    for candidate in OOXML_VBA_PATHS:
+        if candidate in lower_map:
+            vba_name = lower_map[candidate]
+            break
+    if vba_name is None:
+        for low, orig in lower_map.items():
+            if low.endswith("vbaproject.bin"):
+                vba_name = orig
+                break
+
+    if vba_name:
+        blob = b""
+        try:
+            with zf.open(vba_name, "r") as fh:
+                blob = fh.read(MAX_SCRIPT_SIZE)
+        except Exception:
+            blob = b""
+        findings.extend(_vba_payload_findings(blob, f"OOXML {vba_name}"))
+    elif ext in MACRO_OOXML_EXTS:
+        findings.append({
+            "level": "medium",
+            "reason": f"{ext} 为宏启用格式，但未找到 vbaProject.bin",
+        })
+    return findings
+
+
+def _read_ole_u16(data, offset):
+    if offset + 2 > len(data):
+        return None
+    return struct.unpack_from("<H", data, offset)[0]
+
+
+def _read_ole_u32(data, offset):
+    if offset + 4 > len(data):
+        return None
+    return struct.unpack_from("<I", data, offset)[0]
+
+
+def _decode_ole_name(raw):
+    try:
+        return raw.decode("utf-16le").rstrip("\x00")
+    except UnicodeDecodeError:
+        return raw.decode("latin-1", errors="replace").rstrip("\x00")
+
+
+def _ole_fat_chain(fat, start, max_sectors):
+    chain = []
+    seen = set()
+    cur = start
+    while cur < 0xFFFFFFF8:
+        if cur in seen or len(chain) >= max_sectors:
+            break
+        seen.add(cur)
+        chain.append(cur)
+        if cur >= len(fat):
+            break
+        cur = fat[cur]
+    return chain
+
+
+def _parse_ole_streams(data):
+    """解析 OLE 复合文档的目录流，返回 {stream_name: bytes}（截断到 MAX_SCRIPT_SIZE）。"""
+    if len(data) < 76 or data[:8] != b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
+        return None
+    sector_shift = _read_ole_u16(data, 0x1E)
+    mini_shift = _read_ole_u16(data, 0x20)
+    fat_count = _read_ole_u32(data, 0x2C)
+    dir_start = _read_ole_u32(data, 0x30)
+    mini_cutoff = _read_ole_u32(data, 0x38)
+    mini_fat_start = _read_ole_u32(data, 0x3C)
+    mini_fat_count = _read_ole_u32(data, 0x40)
+    difat_start = _read_ole_u32(data, 0x44)
+    difat_count = _read_ole_u32(data, 0x48)
+    if None in (sector_shift, mini_shift, fat_count, dir_start, mini_cutoff,
+                mini_fat_start, mini_fat_count, difat_start, difat_count):
+        return None
+    if sector_shift < 7 or sector_shift > 12:
+        return None
+    sector_size = 1 << sector_shift
+    mini_size = 1 << mini_shift
+
+    def sector_offset(index):
+        return 512 + index * sector_size
+
+    def read_sector(index):
+        off = sector_offset(index)
+        if off < 0 or off + sector_size > len(data):
+            return None
+        return data[off:off + sector_size]
+
+    fat_sids = []
+    header_difat = data[0x4C:0x4C + 109 * 4]
+    for i in range(109):
+        sid = struct.unpack_from("<I", header_difat, i * 4)[0]
+        if sid < 0xFFFFFFF8:
+            fat_sids.append(sid)
+    cur = difat_start
+    for _ in range(min(difat_count, 32)):
+        blob = read_sector(cur)
+        if blob is None or len(blob) < 4:
+            break
+        for i in range((sector_size // 4) - 1):
+            sid = struct.unpack_from("<I", blob, i * 4)[0]
+            if sid < 0xFFFFFFF8:
+                fat_sids.append(sid)
+        nxt = struct.unpack_from("<I", blob, sector_size - 4)[0]
+        if nxt >= 0xFFFFFFF8:
+            break
+        cur = nxt
+
+    fat = []
+    for sid in fat_sids[: max(fat_count, 1) + 8]:
+        blob = read_sector(sid)
+        if blob is None:
+            continue
+        for i in range(len(blob) // 4):
+            fat.append(struct.unpack_from("<I", blob, i * 4)[0])
+    if not fat:
+        return None
+
+    def read_chain(start, size_limit):
+        chunks = []
+        total = 0
+        for sid in _ole_fat_chain(fat, start, max_sectors=4096):
+            blob = read_sector(sid)
+            if blob is None:
+                break
+            remain = size_limit - total
+            if remain <= 0:
+                break
+            chunks.append(blob[:remain])
+            total += min(len(blob), remain)
+        return b"".join(chunks)
+
+    dir_data = read_chain(dir_start, 2 * 1024 * 1024)
+    if len(dir_data) < 128:
+        return None
+
+    entries = []
+    for i in range(len(dir_data) // 128):
+        raw = dir_data[i * 128:(i + 1) * 128]
+        name_len = struct.unpack_from("<H", raw, 64)[0]
+        obj_type = raw[66]
+        start_sid = struct.unpack_from("<I", raw, 116)[0]
+        stream_size = struct.unpack_from("<I", raw, 120)[0]
+        name = _decode_ole_name(raw[:min(64, name_len)])
+        entries.append({
+            "name": name,
+            "type": obj_type,
+            "start": start_sid,
+            "size": stream_size,
+        })
+
+    mini_stream = b""
+    root = next((e for e in entries if e["type"] == 5), None)
+    if root and root["size"]:
+        mini_stream = read_chain(root["start"], min(root["size"], 8 * 1024 * 1024))
+
+    mini_fat = []
+    if mini_fat_count and mini_fat_start < 0xFFFFFFF8:
+        mini_fat_data = read_chain(mini_fat_start, mini_fat_count * sector_size)
+        for i in range(len(mini_fat_data) // 4):
+            mini_fat.append(struct.unpack_from("<I", mini_fat_data, i * 4)[0])
+
+    def read_mini_chain(start, size_limit):
+        chunks = []
+        total = 0
+        seen = set()
+        cur = start
+        while cur < 0xFFFFFFF8 and total < size_limit:
+            if cur in seen:
+                break
+            seen.add(cur)
+            off = cur * mini_size
+            if off + mini_size > len(mini_stream):
+                break
+            remain = size_limit - total
+            chunks.append(mini_stream[off:off + min(mini_size, remain)])
+            total += min(mini_size, remain)
+            if cur >= len(mini_fat):
+                break
+            cur = mini_fat[cur]
+        return b"".join(chunks)
+
+    streams = {}
+    for entry in entries:
+        if entry["type"] != 2 or not entry["name"]:
+            continue
+        limit = min(entry["size"], MAX_SCRIPT_SIZE)
+        if limit <= 0:
+            streams[entry["name"]] = b""
+            continue
+        if entry["size"] < mini_cutoff and mini_stream:
+            streams[entry["name"]] = read_mini_chain(entry["start"], limit)
+        else:
+            streams[entry["name"]] = read_chain(entry["start"], limit)
+    return streams
+
+
+def inspect_ole_macros(data):
+    findings = []
+    streams = _parse_ole_streams(data)
+    if streams is None:
+        findings.append({
+            "level": "low",
+            "reason": "OLE 复合文档解析失败，未能检查宏流",
+        })
+        return findings
+
+    macro_streams = []
+    for name, blob in streams.items():
+        low = name.lower().replace("\x05", "").replace("\x01", "")
+        if any(hint in low for hint in OLE_MACRO_NAME_HINTS):
+            macro_streams.append((name, blob))
+
+    if not macro_streams:
+        return findings
+
+    combined = b"".join(blob for _, blob in macro_streams)
+    names = ", ".join(n for n, _ in macro_streams[:4])
+    findings.extend(_vba_payload_findings(combined, f"OLE 宏流 ({names})"))
+    return findings
+
+
+def check_office_macros(filepath):
+    findings = []
+    ext = get_file_ext(filepath)
+    try:
+        size = os.path.getsize(filepath)
+    except OSError:
+        return findings
+
+    if ext in OOXML_EXTS:
+        if size > MAX_OFFICE_ZIP_SCAN_BYTES:
+            findings.append({
+                "level": "medium",
+                "reason": f"Office 文档过大（{size} 字节），跳过宏流检查",
+            })
+            return findings
+        try:
+            with zipfile.ZipFile(filepath, "r") as zf:
+                findings.extend(inspect_ooxml_macros(zf, ext))
+        except (zipfile.BadZipFile, OSError, PermissionError) as e:
+            findings.append({"level": "low", "reason": f"OOXML 打开失败: {e}"})
+        return findings
+
+    if ext in OLE_OFFICE_EXTS:
+        if size > MAX_OLE_PARSE_SIZE:
+            findings.append({
+                "level": "medium",
+                "reason": f"OLE 文档过大（{size} 字节），跳过宏流检查",
+            })
+            return findings
+        try:
+            with open(filepath, "rb") as f:
+                data = f.read()
+        except (OSError, PermissionError) as e:
+            findings.append({"level": "low", "reason": f"OLE 读取失败: {e}"})
+            return findings
+        findings.extend(inspect_ole_macros(data))
     return findings
 
 
@@ -745,6 +1130,8 @@ def scan_file(filepath, strategy, malicious_hashes):
         if content_err:
             read_errors.append(content_err)
 
+        all_findings.extend(check_office_macros(filepath))
+
     if strategy == "deep":
         all_findings.extend(check_archive_content(filepath))
         all_findings.extend(check_pe_structure(filepath))
@@ -865,20 +1252,36 @@ def run_scan(target, strategy, filter_exts, excludes, jobs, quiet, malicious_has
     }
 
 
+def _ingest_hash_item(hashes, item, default_name="外部哈希库条目"):
+    sha = str(item.get("sha256", "")).strip().lower()
+    if len(sha) != 64 or any(c not in "0123456789abcdef" for c in sha):
+        return
+    hashes[sha] = item.get("name") or item.get("description") or default_name
+
+
 def load_malicious_hashes():
+    """合并内置 fallback、hashes.json、hash-sources/*.json。后者覆盖前者。"""
     hashes = dict(DEFAULT_MALICIOUS_HASHES)
-    path = REFERENCES_DIR / "hashes.json"
-    if not path.exists():
-        return hashes
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        for item in data.get("malicious_hashes", []):
-            sha = item.get("sha256", "").lower()
-            if sha:
-                hashes[sha] = item.get("name", "外部哈希库条目")
-    except (OSError, json.JSONDecodeError) as e:
-        print(f"警告: 外部哈希库加载失败: {e}", file=sys.stderr)
+    sources = [REFERENCES_DIR / "hashes.json"]
+    if HASH_SOURCES_DIR.is_dir():
+        sources.extend(sorted(HASH_SOURCES_DIR.glob("*.json")))
+    for path in sources:
+        if not path.exists():
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"警告: 哈希库加载失败 {path.name}: {e}", file=sys.stderr)
+            continue
+        items = data.get("malicious_hashes", [])
+        if isinstance(items, dict):
+            items = [{"sha256": k, "name": v} for k, v in items.items()]
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if isinstance(item, dict):
+                _ingest_hash_item(hashes, item, default_name=path.stem)
     return hashes
 
 

@@ -45,7 +45,7 @@ Agent 根据用户意图确定三个核心参数：
 策略说明：
 - **quick**：文件名特征 + 文件头签名，不读取文件内容，速度最快
 - **standard**：quick + 文件哈希 + 脚本内容模式匹配，平衡速度与深度
-- **deep**：standard + 压缩包内检（ZIP 完整，RAR/7Z 仅提示）+ 可执行文件 PE 导入表解析 + LNK 目标检测
+- **deep**：standard + 压缩包内检（ZIP 文件名 + 内部文件头，RAR/7Z 仅提示）+ 可执行文件 PE 导入表解析 + LNK 目标检测
 
 如果用户未明确指定策略，根据目标规模自动选择：单文件 → quick，文件夹 → standard，磁盘/大型目录 → standard（提示用户可切换 deep）。
 
@@ -82,11 +82,12 @@ python scripts/scan.py \
 
 1. **文件名特征检测**：双扩展名（含多段）、可疑命名（强/弱信号）、伪装扩展名
 2. **文件头签名检测**：文件实际类型与扩展名是否匹配（含 .docx/.xlsx/.docm/.xlsm/.jar 映射至 ZIP 签名）
-3. **文件哈希检测**：计算 SHA256，与内置 + `references/hashes.json` 合并的哈希库比对
+3. **文件哈希检测**：计算 SHA256，与内置 + `references/hashes.json` + `references/hash-sources/*.json` 合并比对
 4. **脚本内容分析**：JS/PS1/PSM1/VBS/VBE/BAT/CMD/PY/SH/HTA/WSF/WSH/REG 中的危险模式
-5. **压缩包内容检查**（deep）：列出 ZIP 内部文件，检查是否有可执行/脚本/双扩展名文件；RAR/7Z 仅提示"依赖外部工具"
-6. **PE 导入表分析**（deep）：真实解析 DOS→PE→OptionalHeader→Section Table→Import Descriptor→Thunk 链，检测进程注入/下载执行组合
-7. **LNK 目标检测**（deep）：校验 Shell Link 签名并检查目标字符串中是否包含 powershell/cmd/mshta/网络路径
+5. **Office 宏流检测**（standard/deep）：OOXML（docx/xlsx/pptx/docm/xlsm/pptm）查 `vbaProject.bin`；OLE（doc/xls/ppt）解析复合文档流名
+6. **压缩包内容检查**（deep）：ZIP 内部文件名 + 读取每个条目文件头（伪装 EXE/类型不一致）；RAR/7Z 仅提示"依赖外部工具"
+7. **PE 导入表分析**（deep）：真实解析 DOS→PE→OptionalHeader→Section Table→Import Descriptor→Thunk 链，检测进程注入/下载执行组合
+8. **LNK 目标检测**（deep）：校验 Shell Link 签名并检查目标字符串中是否包含 powershell/cmd/mshta/网络路径
 
 ### Phase 3：生成报告
 
@@ -107,6 +108,17 @@ Agent 在呈现报告时：
 - 可疑文件次优先，黄色标注
 - 安全文件可折叠或摘要展示
 - 未能检查文件列出原因，建议用户手动检查
+
+维护哈希库（只写本地，默认不上网）：
+
+```bash
+python scripts/update_hashes.py --add <sha256> --name "样本名"
+python scripts/update_hashes.py --from-file hashes.txt
+python scripts/update_hashes.py --rebuild   # 合并 references/hash-sources/*.json
+python scripts/update_hashes.py --list
+```
+
+仅当用户明确要求在线更新时，才使用 `update_hashes.py --from-url <清单URL>`；只下载哈希清单，不下载样本。
 
 ## 决策规则
 
@@ -130,8 +142,8 @@ Agent 在呈现报告时：
 以下操作**优先**：
 - 只读访问目标文件
 - 所有检测在本地完成
-- 哈希值比对使用内置 + 本地外置规则库，不依赖网络
-- 压缩包检查只读取文件列表，不解压到磁盘
+- 哈希值比对使用内置 + 本地外置规则库，默认不依赖网络
+- 压缩包检查只在内存读取文件头/名单，不解压到磁盘
 
 ## 资源导航
 
@@ -140,9 +152,11 @@ Agent 在呈现报告时：
 | 威胁检测规则 | `references/threat-detection-rules.md` | 各检测维度的具体规则和判定标准 |
 | 扫描策略详解 | `references/scan-strategies.md` | 三种策略的检测项、适用场景和性能预期 |
 | 文件类型风险矩阵 | `references/file-type-risk-matrix.md` | 各文件类型的风险等级和检测重点 |
-| 恶意哈希库 | `references/hashes.json` | 可扩展的 SHA256 恶意样本库（与内置 fallback 合并） |
+| 恶意哈希库 | `references/hashes.json` | 可更新的 SHA256 恶意样本库（与内置 fallback 合并） |
+| 哈希源目录 | `references/hash-sources/` | 第三方 JSON 清单，扫描时自动合并 |
 | 扫描脚本 | `scripts/scan.py` | 主扫描引擎 |
 | 报告脚本 | `scripts/report.py` | 报告生成器 |
+| 哈希更新脚本 | `scripts/update_hashes.py` | 追加 / 导入 / 重建哈希库 |
 
 ## 依赖
 
