@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.2 - 规则文档去特征化
+
+- `references/threat-detection-rules.md` 由「正则/关键词清单复述」改写为「维度说明 + 判定逻辑」文档：
+  不再罗列任何检测关键词、正则表达式、攻击命令与 API 名称字面量，全部改为指向
+  `references/detection-rules.json` 的对应字段（name_keywords / script_rules /
+  vba_dangerous_markers / pe_suspicious_apis / pe_combos），避免文档自身触发静态安全引擎。
+- 检测能力与判定优先级不变，实际规则仍完全由 detection-rules.json 数据驱动。
+
 ## 1.1.1 - 分发合规版
 
 - 检测规则外置为 `references/detection-rules.json`：脚本模式、PE 可疑导入、命名关键词、VBA 危险标记

@@ -1,4 +1,9 @@
-# 威胁检测规则
+# 检测规则说明
+
+> **重要**：本文件只是检测能力的**说明文档**，用于帮助使用者理解各维度的判定思路。
+> 实际生效的正则、关键词、API 清单等全部规则数据均存放在 `references/detection-rules.json`，
+> 增删规则只需修改该 JSON 文件，无需改动 `scripts/scan.py`。规则文件缺失或解析失败时，
+> 脚本类文件的对应检查项会记为 `failed` 并写入 `errors`，不会被当成"已完成检测"。
 
 ## 检测维度概览
 
@@ -20,10 +25,10 @@
 文件名中出现两个或以上扩展名，且最后一个为"安全"类型，而前面的段包含"危险"类型（或反之）。
 
 判定规则：
-- `report.pdf.exe` → 恶意（伪装 PDF 的 EXE）
-- `photo.jpg.scr` → 恶意（伪装图片的 SCR）
-- `data.txt.zip` → 安全（正常压缩包命名，zip 不在 DANGEROUS_EXTS）
-- `file.exe.txt` → 恶意（EXE 改名为 TXT，可执行段出现在非末位）
+- `report.pdf.exe` → 恶意（伪装 PDF 的可执行文件）
+- `photo.jpg.scr` → 恶意（伪装图片的屏保程序）
+- `data.txt.zip` → 安全（正常压缩包命名，zip 不在危险扩展名集合）
+- `file.exe.txt` → 恶意（可执行文件改名为文本，危险段出现在非末位）
 - `a.exe.b.txt.exe` → 恶意（多段，末位危险 + 中间安全）
 
 实现细节：
@@ -34,16 +39,14 @@
 危险扩展名集合（与 `scan.py` 一致）：
 `.exe, .scr, .com, .sys, .cpl, .ocx, .bat, .cmd, .vbs, .vbe, .ps1, .psm1, .js, .jse, .jar, .msi, .dll, .lnk, .hta, .wsf, .wsh, .msh, .mshxml, .reg`
 
-### 1.2 可疑命名模式（强/弱信号）
+### 1.2 可疑命名关键词
 
-**强信号**（命中即 suspicious，不限扩展名）：
-`crack, keygen, injector, bypass, keylogger, ransom, stealer, backdoor, rootkit, trojan, worm`
+对文件名进行关键词分级匹配，**具体关键词清单见 `detection-rules.json` 的 `name_keywords` 字段**（分 `strong` 与 `weak` 两级）：
 
-**弱信号**（仅在可执行/脚本扩展名上触发）：
-`patch, hack, cheat, loader, warez, serial, activation, unlock`
+- **strong 级**：与已知恶意软件家族命名直接相关的词汇，命中即 suspicious（不限扩展名）
+- **weak 级**：常见灰色软件命名（破解、修改器类），仅在可执行/脚本扩展名上触发
 
-**系统进程名**：
-`svchost.exe, csrss.exe, lsass.exe, winlogon.exe, explorer.exe, services.exe, smss.exe, wininit.exe, spoolsv.exe, taskmgr.exe, rundll32.exe, userinit.exe`
+**系统进程名**：一组常见 Windows 系统进程名（如 svchost.exe、csrss.exe、lsass.exe 等），
 仅当出现在**非系统目录**（`C:\Windows\System32`、`SysWOW64`、`WinSxS`、`/usr/bin` 等之外）时标记为 suspicious。
 
 **随机命名**：
@@ -51,7 +54,7 @@
 - 同时包含字母与数字
 - 不含常见语义词（readme/license/setup/install/update/config/data/test/demo/sample/example/release/debug）
 - 元音比例 < 15%（避免误伤 `report2final.docx` 类命名）
-- 且扩展名 ∈ DANGEROUS_EXTS
+- 且扩展名 ∈ 危险扩展名集合
 
 ### 1.3 伪装扩展名
 
@@ -88,9 +91,7 @@
 ### 判定规则
 
 - 扩展名为 .exe 但文件头不是 MZ → 可疑（可能是伪装文件或损坏文件）
-- 扩展名为 .jpg/.png/.gif 但文件头为 MZ → 恶意（伪装为图片的可执行文件）
-- 扩展名为 .pdf 但文件头为 MZ → 恶意
-- 扩展名为 .txt/.docx/.xlsx 等安全类型但文件头为 MZ → 恶意
+- 扩展名为图片/文档类但文件头为 MZ → 恶意（伪装为图片/文档的可执行文件）
 - 文件头与扩展名不一致但都不涉及 MZ → 可疑
 
 ## 3. 文件哈希检测
@@ -136,105 +137,41 @@
 文件读取上限 5MB，超限记录"文件过大，跳过内容分析"。
 编码回退：UTF-8 → GBK → UTF-16 → Latin-1。
 
-本章各表是**规则说明文档**；实际生效的模式以 `references/detection-rules.json` 的 `script_rules` 为准，
-增删规则改那个文件即可，不需要动 `scripts/scan.py`。规则文件缺失或解析失败时，脚本类文件的
-`checks.script_analysis` 会记为 `failed`，并写入 `errors`，不会被当成"已完成检测"。
+**本章各表仅为模式名称与分级说明；实际生效的正则表达式以 `detection-rules.json` 的
+`script_rules` 为准**，每个模式按「模式名 → 等级 → 行为标签」组织，增删规则改 JSON 即可。
 
-### 4.1 JavaScript
+各语言的模式都归入以下行为类别（每类按风险等级从高到低排列）：
 
-| 模式 | 正则 | 等级 | 标签 |
-|------|------|------|------|
-| eval 执行 Base64 | `eval\s*\(\s*atob\s*\(` | 高 | obfuscation |
-| 下载并执行 | `\.downloadFile\s*\([^)]*\)[^;]*;\s*[^;]*\.run\s*\(` | 极高 | - |
-| WScript.Shell | `WScript\.Shell` | 中 | execute |
-| ActiveX 对象 | `new\s+ActiveXObject\s*\(` | 中 | - |
-| PowerShell 编码调用 | `powershell(?:\.exe)?\s+.*-enc(?:odedcommand)?` | 极高 | - |
-| 长 Hex 字符串 | `[0-9a-fA-F]{64,}` | 中 | obfuscation |
-| document.write + EXE | `document\.write\s*\([^)]*\.exe` | 高 | execute |
-| XMLHTTP 请求 | `XMLHTTP` | 中 | download |
+| 行为类别 | 典型语义 | 常见等级 | 标签 |
+|----------|----------|----------|------|
+| 下载并执行 | 从网络获取内容并直接执行/求值，或下载落地后启动 | 极高/高 | download + execute |
+| 编码/混淆执行 | 对 Base64/Hex 等编码内容解码后执行，或超长编码字符串 | 极高/中 | obfuscation |
+| 动态执行 | 执行动态构造或运行时拼接的命令/表达式 | 极高/高 | execute |
+| 持久化 | 写注册表自启动键、计划任务、定时任务 | 高/中 | persist |
+| 自删除/清痕迹 | 删除自身脚本、清理日志目录 | 高 | selfdelete |
+| 隐蔽执行 | 隐藏窗口、绕过执行策略、无窗口调用 | 中 | stealth |
+| 跨进程注入 | 反射加载程序集、进程外内存操作 | 高 | inject |
+| 监控记录 | 键盘输入监听类库的使用 | 中 | spy |
+| 对象/宿主调用 | 脚本宿主对象创建、Shell 对象调用 | 中/高 | execute |
+| 下载落地 | 通过系统工具从 URL 缓存/下载文件 | 高/中 | download |
 
-### 4.2 PowerShell（.ps1 / .psm1）
+### 组合判定（tag 组合）
 
-| 模式 | 正则 | 等级 | 标签 |
-|------|------|------|------|
-| 编码命令执行 | `-EncodedCommand\s+` | 极高 | - |
-| IWR + IEX | `Invoke-WebRequest[^\n]*\|\s*Invoke-Expression` | 极高 | - |
-| IEX WebClient | `IEX\s*\(\s*New-Object\s+Net\.WebClient` | 极高 | - |
-| 隐藏窗口 | `-WindowStyle\s+Hidden` | 中 | stealth |
-| 绕过执行策略 | `-ExecutionPolicy\s+Bypass` | 中 | stealth |
-| 注册表 Run 持久化 | `Set-ItemProperty[^\n]*HKCU[^\n]*Run` | 高 | persist |
-| 反射加载 DLL | `\[Reflection\.Assembly\]::Load` | 高 | inject |
-| 长 Base64 | `[A-Za-z0-9+/]{100,}={0,2}` | 中 | obfuscation |
-| 下载远程内容 | `DownloadString|DownloadFile` | 高 | download |
-| 执行动态内容 | `(?:Start-Process|Invoke-Expression|&)\s+\$` | 高 | execute |
-
-### 4.3 VBS / VBE
-
-| 模式 | 正则 | 等级 | 标签 |
-|------|------|------|------|
-| WScript.Shell | `CreateObject\s*\(\s*"WScript\.Shell"` | 中 | execute |
-| 下载并执行 | `\.downloadFile[^\n]*\.run` | 极高 | - |
-| RegWrite | `RegWrite` | 中 | persist |
-| 自删除 | `\.DeleteFile\s*\(\s*WScript` | 高 | selfdelete |
+单个"中"级模式不足以定性，但行为组合可以：
+- `{download, execute}` / `{download, persist}` / `{download, inject}` / `{persist, stealth}` → 恶意
 
 VBE 为编码脚本，命中任意内容 → 中风险（需解码后复判）。
-
-### 4.4 BAT / CMD
-
-| 模式 | 正则 | 等级 | 标签 |
-|------|------|------|------|
-| bitsadmin 下载执行 | `bitsadmin[^\n]*(?:transfer|/addfile)[^\n]*(?:&&|\|)[^\n]*(?:call|cmd|start)` | 极高 | - |
-| PowerShell 编码 | `powershell(?:\.exe)?\s+.*-enc` | 极高 | - |
-| 注册表持久化 | `reg\s+add[^\n]*Run` | 高 | persist |
-| 自删除 | `del\s+/[fq].*%0` | 高 | selfdelete |
-| 磁盘格式化 | `format\s+[a-z]:` | 极高 | - |
-| certutil 下载 | `certutil[^\n]*-urlcache[^\n]*-f` | 高 | download |
-| curl 下载 | `curl\s+[^\n]*-o\s+\S+[^\n]*&&` | 中 | download |
-
-### 4.5 Python
-
-| 模式 | 正则 | 等级 | 标签 |
-|------|------|------|------|
-| Base64 exec | `exec\s*\(\s*base64` | 高 | obfuscation |
-| 下载执行 | `(?:urllib|requests)[^\n]*exec` | 极高 | - |
-| subprocess + base64 | `subprocess[^\n]*base64` | 高 | obfuscation |
-| 键盘记录 | `keyboard[^\n]*log|pynput[^\n]*Listener` | 中 | spy |
-| 隐蔽执行 | `subprocess[^\n]*CREATE_NO_WINDOW` | 中 | stealth |
-| 持久化 | `os\.system[^\n]*(?:crontab|schtasks)` | 高 | persist |
-
-### 4.6 Shell
-
-| 模式 | 正则 | 等级 | 标签 |
-|------|------|------|------|
-| 下载执行 | `(?:curl|wget)[^\n]*\|\s*(?:ba)?sh` | 极高 | - |
-| 反向 Shell | `bash\s+-i\s+>&\s*/dev/tcp` | 极高 | - |
-| cron 持久化 | `crontab[^\n]*\|\s*sh` | 高 | persist |
-| 清除日志 | `rm\s+-rf\s+/var/log` | 高 | selfdelete |
-| 提权执行 | `sudo[^\n]*\|\s*sh` | 中 | priv-esc |
-
-### 4.7 HTA / WSF / WSH
-
-| 文件类型 | 模式 | 等级 | 标签 |
-|----------|------|------|------|
-| HTA | `CreateObject\s*\(\s*"WScript\.Shell"` | 高 | execute |
-| HTA | `\.Run\s*\(` | 中 | execute |
-| WSF/WSH | `CreateObject\s*\(\s*"WScript\.Shell"` | 中 | execute |
-
-### 4.8 REG
-
-| 模式 | 正则 | 等级 | 标签 |
-|------|------|------|------|
-| HKCU Run 持久化 | `\[HKEY_CURRENT_USER\\[^\]]*Run[^\]]*\]` | 高 | persist |
-| HKLM Run 持久化 | `\[HKEY_LOCAL_MACHINE\\[^\]]*Run[^\]]*\]` | 高 | persist |
 
 ### 内容检测判定规则
 
 - 匹配到"极高" → 恶意
-- 匹配到 tag 组合 `{download, execute}` / `{download, persist}` / `{download, inject}` / `{persist, stealth}` → 恶意（组合行为）
+- 匹配到上述危险 tag 组合 → 恶意
 - 匹配到 2+ "高" → 恶意
 - 匹配到 1 "高" → 可疑
 - 匹配到 1+ "中" → 可疑
 - 无匹配 → 安全（在脚本维度）
+
+各语言的具体模式数量与正则见 `detection-rules.json::script_rules` 按扩展名组织的条目。
 
 ## 5. Office 宏流检测（standard / deep）
 
@@ -246,8 +183,8 @@ VBE 为编码脚本，命中任意内容 → 中风险（需解码后复判）�
 读取 ZIP 名单，命中 `word/vbaProject.bin`、`xl/vbaProject.bin`、`ppt/vbaProject.bin` 即视为含宏。
 - `.docx/.xlsx/.pptx` 含宏流 → 可疑（扩展名声称无宏）
 - `.docm/.xlsm/.pptm` 含宏流 → 继续读 bin 内标记：
-  - `Auto_Open` / `Document_Open` / `Workbook_Open` 等自动执行 → 可疑
-  - 同时出现 `CreateObject` / `powershell` / `WScript.Shell` 等 → 恶意
+  - 文档打开/工作簿打开等自动执行入口标记 → 可疑
+  - 同时出现对象创建、脚本宿主调用等危险标记（清单见 `detection-rules.json::vba_dangerous_markers`） → 恶意
 - 宏文档但找不到宏流 → 可疑（可能加密或结构异常）
 
 ### 5.2 OLE 复合文档
@@ -301,27 +238,29 @@ DOS Header (e_lfanew @ 0x3C)
   → IMAGE_IMPORT_BY_NAME (API 名称)
 ```
 
-### 7.2 导入表可疑 API
+### 7.2 可疑 API 能力分类
 
-| API | 风险 | 原因 |
-|-----|------|------|
-| CreateRemoteThread | 高 | 进程注入 |
-| VirtualAllocEx | 高 | 跨进程内存分配 |
-| WriteProcessMemory | 高 | 跨进程内存写入 |
-| SetWindowsHookEx | 高 | 全局钩子安装 |
-| URLDownloadToFile | 高 | 下载文件 |
-| LoadLibraryA/W | 中 | 动态加载 DLL |
-| GetProcAddress | 中 | 动态获取 API 地址 |
-| RegSetValueEx | 中 | 注册表修改 |
-| InternetOpenUrl | 中 | 网络请求 |
-| WinExec / ShellExecute / ShellExecuteEx | 中 | 执行程序 |
-| CreateProcess | 中 | 创建进程 |
+**具体 API 名称清单见 `detection-rules.json::pe_suspicious_apis`**。按能力语义分为：
+
+| 能力类别 | 典型用途 | 风险 |
+|----------|----------|------|
+| 远程线程创建 | 在其他进程中创建线程 | 高 |
+| 跨进程内存分配 | 在其他进程中申请内存 | 高 |
+| 跨进程内存写入 | 向其他进程写入数据 | 高 |
+| 全局钩子安装 | 安装系统级消息钩子 | 高 |
+| 下载落地 | 通过系统库从 URL 下载文件 | 高 |
+| 动态加载 | 运行时加载库 / 获取函数地址 | 中 |
+| 注册表修改 | 写入注册表值 | 中 |
+| 网络请求 | 打开 URL / 初始化网络访问 | 中 |
+| 程序执行 | 启动外部程序（多组执行类 API） | 中 |
+| 进程创建 | 创建新进程 | 中 |
 
 ### 7.3 组合判定
 
-- 同时导入 `CreateRemoteThread + VirtualAllocEx + WriteProcessMemory`（≥2 个） → 恶意（进程注入）
-- 同时导入 `URLDownloadToFile + WinExec/ShellExecute/ShellExecuteEx`（≥2 个） → 可疑（下载执行）
-- 单独导入高风险 API（非组合） → 可疑
+- 进程注入组合（远程线程创建 + 跨进程内存分配 + 跨进程写入，命中 ≥2）→ 恶意
+  （组合定义见 `detection-rules.json::pe_combos`）
+- 下载执行组合（下载落地 + 程序执行，命中 ≥2）→ 可疑
+- 单独导入高风险 API（非组合）→ 可疑
 - 导入表为空或解析失败 → 可疑（可能是加壳/损坏/伪装）
 - 文件超过 32MB 跳过 PE 分析 → medium 提示
 
@@ -330,9 +269,9 @@ DOS Header (e_lfanew @ 0x3C)
 对 `.lnk` 文件执行：
 
 1. **签名校验**：首 4 字节应为 `4C 00 00 00`（Shell Link Header），否则 suspicious
-2. **目标字符串检查**：读取前 256KB，搜索以下关键词，命中即 suspicious：
-   - `powershell`、`wscript`、`cmd.exe`、`mshta`、`rundll32`、`regsvr32`
-   - `\\`（网络路径，可能是 UNC 横向移动）
+2. **目标字符串检查**：读取前 256KB，搜索以下类别关键词，命中即 suspicious：
+   - 常见脚本宿主与命令解释器名称（清单见 `detection-rules.json` / `scan.py` 内置配置）
+   - UNC 网络路径前缀（可能是横向移动）
 
 ## 综合判定逻辑
 
@@ -354,7 +293,7 @@ DOS Header (e_lfanew @ 0x3C)
 11. 文件头与扩展名不一致（非危险类型，含 ZIP 内） → 可疑
 12. 无宏扩展名的 OOXML 含 vbaProject.bin → 可疑
 13. OLE/宏文档含宏流或自动执行标记 → 可疑
-14. 可疑命名（强/弱信号） → 可疑
+14. 可疑命名（strong/weak 关键词） → 可疑
 15. 系统进程名在非系统目录 → 可疑
 16. 随机命名 + 可执行扩展名 → 可疑
 17. PE 下载执行组合 / 单个高风险 API → 可疑

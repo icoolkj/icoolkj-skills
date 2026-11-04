@@ -6,7 +6,7 @@ description: |
   生成未检出/可疑/恶意/未能检查四类分类报告，并标注检测覆盖情况。
   触发词：扫描、查杀、查毒、杀毒、检查病毒、扫描目录、扫描U盘、检查EXE、安全扫描、malware scan、virus scan。
 agent_created: true
-version: 1.1.1
+version: 1.1.2
 display_name: 本地文件安全查杀
 display_name_en: Security Scanner
 description_zh: |
