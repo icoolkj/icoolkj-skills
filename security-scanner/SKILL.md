@@ -5,6 +5,19 @@ description: |
   支持快速/标准/深度三种扫描策略，按 EXE/DLL/MSI/JS/PS1 等文件类型过滤，实时显示扫描进度，
   生成安全/可疑/恶意/未能检查四类分类报告。
   触发词：扫描、查杀、查毒、杀毒、检查病毒、扫描目录、扫描U盘、检查EXE、安全扫描、malware scan、virus scan。
+agent_created: true
+version: 1.0.0
+display_name: 本地文件安全查杀
+display_name_en: Security Scanner
+description_zh: |
+  本地文件安全查杀工具。扫描用户电脑目录中的文件、文件夹或磁盘，检测潜在恶意文件和可疑脚本。
+  支持快速/标准/深度三种扫描策略，按 EXE/DLL/MSI/JS/PS1 等文件类型过滤，实时显示扫描进度，
+  生成安全/可疑/恶意/未能检查四类分类报告。
+description_en: |
+  A local file security scanning tool. Scans files, folders or disks on the user machine to detect
+  potential malware and suspicious scripts. Supports quick, standard and deep scanning strategies with
+  filtering by file type such as EXE, DLL, MSI, JS and PS1, shows live scanning progress, and produces a
+  classified report covering safe, suspicious, malicious and unscannable files.
 allowed-tools: Bash(python:*)
 ---
 

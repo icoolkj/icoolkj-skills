@@ -1,6 +1,12 @@
 ---
 name: note-intel
 description: 自媒体内容情报与图文策划 Skill。用于把文章、报告、网页、采访、帖子或多份资料转化为结构化、可核对、可继续创作的内容素材包；支持动态篇幅与信息密度评估、事实/观点/推断分层、证据链、风险扫描、选题评分、多素材合并、冲突对比和图文策划。绝不虚构，不为满足数量强行填充。
+agent_created: true
+version: 1.0.0
+display_name: 笔记情报：内容情报与图文策划
+display_name_en: Note Intel Content Intelligence
+description_zh: 自媒体内容情报与图文策划 Skill。用于把文章、报告、网页、采访、帖子或多份资料转化为结构化、可核对、可继续创作的内容素材包；支持动态篇幅与信息密度评估、事实/观点/推断分层、证据链、风险扫描、选题评分、多素材合并、冲突对比和图文策划。绝不虚构，不为满足数量强行填充。
+description_en: A skill for converting articles, reports, web pages, interviews, posts or multiple sources into structured, verifiable content packs that are ready for further creation. Covers dynamic length and information density assessment, layering of facts, opinions and inferences, evidence chains, risk scanning, topic scoring, multi-source merging, conflict comparison and visual planning. Never fabricates content and never pads output to meet quotas.
 ---
 
 # NoteIntel：自媒体内容情报与图文策划

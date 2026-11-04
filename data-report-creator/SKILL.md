@@ -1,7 +1,12 @@
 ---
 name: data-report-creator
-version: 1.2.0
 description: "人工配置驱动的数据分析报告生成工具。用户通过命令行生成并手动编辑 report.json，再由本地 Python 流水线完成合规检查、图表渲染和 Markdown/HTML/PDF 导出。适用于希望直接控制配置、手工调整章节或使用 CLI 生成 CSV/Excel/JSON 数据报告的场景；不用于由模型通过自然语言主导报告规划的交互式分析。"
+agent_created: true
+version: 1.2.0
+display_name: 数据分析报告生成工具
+display_name_en: Data Report Creator
+description_zh: 人工配置驱动的数据分析报告生成工具。用户通过命令行生成并手动编辑 report.json，再由本地 Python 流水线完成合规检查、图表渲染和 Markdown/HTML/PDF 导出。适用于希望直接控制配置、手工调整章节或使用 CLI 生成 CSV/Excel/JSON 数据报告的场景；不用于由模型通过自然语言主导报告规划的交互式分析。
+description_en: A configuration-driven data analysis report generator. The user creates and edits report.json from the command line, then a local Python pipeline runs compliance checks, renders charts and exports Markdown, HTML or PDF. Suits users who want direct control over configuration, manual section adjustments, or CLI-generated reports from CSV, Excel or JSON data. Not intended for interactive analysis where the model leads report planning from natural language.
 ---
 
 # 数据分析报告创作 Skill

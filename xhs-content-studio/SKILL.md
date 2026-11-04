@@ -1,6 +1,12 @@
 ---
 name: xhs-content-studio
 description: 事实驱动的小红书内容与轮播卡片工作室。用于把原始文字、报告、网页、PDF、DOCX 或图片整理成可追溯的事实素材包，并根据文章事实与信息密度生成自适应页数的3:4卡片文案、可编辑视觉工作台和PNG导出；支持在用户明确确认后通过浏览器辅助发布到小红书。
+agent_created: true
+version: 1.0.0
+display_name: 小红书内容与卡片工作室
+display_name_en: XHS Content Studio
+description_zh: 事实驱动的小红书内容与轮播卡片工作室。用于把原始文字、报告、网页、PDF、DOCX 或图片整理成可追溯的事实素材包，并根据文章事实与信息密度生成自适应页数的3:4卡片文案、可编辑视觉工作台和PNG导出；支持在用户明确确认后通过浏览器辅助发布到小红书。
+description_en: A fact-driven Xiaohongshu content and carousel card studio. Turns raw text, reports, web pages, PDF, DOCX or images into a traceable fact pack, then generates adaptive-length 3 by 4 carousel copy, an editable visual workbench and PNG export based on article facts and information density. Supports browser-assisted publishing to Xiaohongshu only after explicit user confirmation.
 ---
 
 # 小红书事实驱动内容与卡片工作室
