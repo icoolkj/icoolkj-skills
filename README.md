@@ -27,8 +27,9 @@ icoolkj AI Agent 标准化技能库，沉淀可直接给大模型调用的工具
 - `skill-name/assets/`：模板、图片等静态素材
 - `skill-name/examples/`：调用示例
 - `skill-name/tests/`：单元测试（**不进上传包**）
-- `tools/`：仓库级维护脚本（主从同步、打包校验），不属于任何技能，不随技能上传
-- `build / dist / work / output / *.spec`：打包与运行时产物，已加入 `.gitignore`，不上传仓库
+- `evaluation/<skill-name>/`：该技能的**平台评测集**（`header.json` + `cases.jsonl` + `workspace/`），仓库级资产，不进技能包
+- `tools/`：仓库级维护脚本（主从同步、打包校验、评测集打包），不属于任何技能，不随技能上传
+- `build / dist / dist/evals / work / output / *.spec`：打包与运行时产物，已加入 `.gitignore`，不上传仓库
 
 目录层级上限为 **2 级**（`根/子目录/文件`）。平台打包不接受三级嵌套，新增文件请平铺到现有目录内。
 
@@ -82,7 +83,7 @@ python tools/build_skills.py            # 校验并生成 dist/*.zip
 python tools/build_skills.py --check    # 只校验，不写包
 ```
 
-打包会排除 `tests/`、`evaluation/`、`DESIGN.md`、`work/`、`output/`、`__pycache__` 等非运行时文件，并校验：目录层级 ≤2、包内仅一份 `SKILL.md`、`version` 为 SemVer 裸版本号、`name` 与目录同名、`agent_created: true`、`description` 与 `description_zh` 一致。
+打包会排除 `tests/`、`DESIGN.md`、`work/`、`output/`、`__pycache__` 等非运行时文件（评测集统一放在根目录 `evaluation/`，天然不进包），并校验：目录层级 ≤2、包内仅一份 `SKILL.md`、`version` 为 SemVer 裸版本号、`name` 与目录同名、`agent_created: true`、`description` 与 `description_zh` 一致。
 
 `config.json` 是运行时配置（`analyze_material.py` 默认读取 `<skill>/config.json`），必须留在技能根目录，不要挪进 `references/`。
 
@@ -97,6 +98,41 @@ python tools/audit_safety.py --zip dist/x.zip      # 直接查成品包
 平台会对上传包做基础安全检测（多引擎 + 静态规则）。自检把容易被误判的内容分级列出：可执行代码里出现病毒特征词、注入类 API 名、编码命令执行、反序列化加载等为高危；文档中的同类特征串、外部地址等为中危。**高危存在时退出码为 1**，可挂到 CI 或提交前钩子。
 
 设计原则：检测规则、样本特征这类"看起来像恶意代码"的字符串一律放 `references/*.json` 数据文件，不要写进 `scripts/*.py`——脚本里出现这类字面量最容易被引擎判成 HackTool。
+
+## 评测集
+
+平台「评测集管理 → 新建评测集」需要上传 `header.json` + `cases.jsonl` + `workspace/` 的 zip。评测集不属于任何一个技能的上传包，统一放在仓库根目录：
+
+```
+evaluation/
+  security-scanner/
+    header.json          评分维度、权重、通过/优秀阈值
+    cases.jsonl          每行一个用例（JSON Lines）
+    workspace/case_001/  用例输入文件
+```
+
+```bash
+python tools/build_evals.py             # 校验并生成 dist/evals/*.zip
+python tools/build_evals.py --check     # 只校验，不写包
+python tools/build_evals.py security-scanner   # 只打一个
+```
+
+`cases.jsonl` 每行字段：
+
+| 字段 | 说明 |
+|------|------|
+| `case_name` | 用例名，同一评测集内唯一 |
+| `user_question` | 发给 Agent 的原始提问，要能自然触发该技能 |
+| `expected` | 期望表现，用于人工/模型打分时对照 |
+| `difficulty` | `easy` / `medium` / `hard` |
+| `case_type` | `positive`（应成功）/ `negative`（不应误做或误报）/ `boundary`（边界与表述） |
+| `checklist_by_dim` | 逐维度的检查点，键必须来自 `header.json` 的维度 key |
+| `anchors_by_dim` | 每维度 0 / 5.0 / 10.0 三档评分锚点，避免打分飘 |
+| `input_files` | 附件列表，`{"rel": "workspace/case_001/xxx"}`，路径必须在包内存在 |
+
+打包脚本会校验：维度权重和为 1.00、用例字段齐全、checklist/anchors 的维度均已定义、附件真实存在、workspace 下无孤儿目录、包体积不超过平台 10MB 上限。
+
+评测集里如果要放"恶意样本"作为检出用例，**只用良性诱饵**（纯文本改个扩展名、伪造文件头即可），不要放可执行样本或真实病毒特征串，否则会连同评测集一起被平台安全检测拦下。
 
 ## 运行时适配
 可无缝对接 DeepSeek Harness、LM Studio、私有化 Agent 调度平台，支持本地离线模型调用。

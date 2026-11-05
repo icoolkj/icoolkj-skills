@@ -1,0 +1,36 @@
+{
+  "dataset_name": "security-scanner-eval",
+  "profile": {
+    "dimensions": [
+      {
+        "key": "task_completion",
+        "name": "任务完成度",
+        "weight": 0.4
+      },
+      {
+        "key": "instruction_follow",
+        "name": "指令遵循",
+        "weight": 0.25
+      },
+      {
+        "key": "invocation_accuracy",
+        "name": "调用准确性",
+        "weight": 0.15
+      },
+      {
+        "key": "factuality",
+        "name": "事实准确性",
+        "weight": 0.1
+      },
+      {
+        "key": "rule_compliance",
+        "name": "规则合规",
+        "weight": 0.1
+      }
+    ],
+    "aggregation": {
+      "pass_threshold": 60,
+      "excellent_threshold": 85
+    }
+  }
+}
