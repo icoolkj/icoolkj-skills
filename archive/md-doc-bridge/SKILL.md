@@ -10,6 +10,11 @@ allowed-tools: Bash(python:*)
 
 # MD-Doc-Bridge：Markdown ↔ Word 双层文档转换工具
 
+> **已归档（2026-11-07），不再维护。**  
+> 隐藏层存放位置不合规（`settings.xml` 里的自造元素）、单层无校验、生成时会丢失行内代码文字，
+> 且未通过仓库打包校验。新的文档转换需求请用 **`md-word-dual`**。
+> 归档原因与实测数据见 `archive/README.md`。
+
 > 开发者用 Markdown 写作，阅读者用 Word 阅读。一份文件，两种格式，无缝互通。
 
 ## 核心理念
