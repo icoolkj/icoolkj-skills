@@ -117,6 +117,61 @@ class TestRoundTrip(unittest.TestCase):
             self.assertIn("# 标题一", back)
             self.assertIn("| 名称 | 说明 |", back)
 
+    def test_structure_keeps_lists_and_fences(self):
+        """纯 Word 反解时，列表标记与代码围栏不能丢——这是最容易退化的两处。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            md = os.path.join(tmp, "e.md")
+            with open(md, "w", encoding="utf-8") as fh:
+                fh.write(SAMPLE)
+            out = os.path.join(tmp, "e.docx")
+            docxkit.markdown_to_docx(md, out, embed_source=False)
+            back, _ = docxkit.docx_to_markdown(out)
+            self.assertIn("- 项目一", back)
+            self.assertIn("1. 第一步", back)
+            self.assertIn("2. 第二步", back)
+            self.assertIn("```", back)
+            self.assertIn("def f(x):", back)
+            self.assertIn("> 引用一行", back)
+            # 标题本身加粗，不能把加粗标记带进标题文本
+            self.assertNotIn("# **", back)
+
+
+class TestPresets(unittest.TestCase):
+    def test_all_presets_render_and_validate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            md = os.path.join(tmp, "p.md")
+            with open(md, "w", encoding="utf-8") as fh:
+                fh.write(SAMPLE)
+            seen = set()
+            for name in docxkit.preset_choices():
+                out = os.path.join(tmp, f"p_{name}.docx")
+                res = docxkit.markdown_to_docx(md, out, preset=name)
+                self.assertEqual(res["path"], out)
+                v = docxkit.validate_docx(out)
+                self.assertTrue(v["ok"], f"{name}: {v['problems']}")
+                # 往返不受预设影响
+                back, origin = docxkit.docx_to_markdown(out)
+                self.assertEqual(origin, "embedded")
+                self.assertEqual(back, SAMPLE)
+                seen.add(docxkit.styles_xml(name))
+            self.assertEqual(len(seen), len(docxkit.preset_choices()), "各预设应产生不同的样式表")
+
+    def test_preset_page_margins(self):
+        import zipfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            md = os.path.join(tmp, "q.md")
+            with open(md, "w", encoding="utf-8") as fh:
+                fh.write("# 标题\n\n正文\n")
+            out = os.path.join(tmp, "q.docx")
+            docxkit.markdown_to_docx(md, out, preset="formal")
+            with zipfile.ZipFile(out) as zf:
+                doc = zf.read("word/document.xml").decode("utf-8")
+            self.assertIn('w:left="1800"', doc)
+
+    def test_unknown_preset_falls_back(self):
+        self.assertEqual(docxkit.get_preset("nope")["label"], docxkit.get_preset("standard")["label"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
