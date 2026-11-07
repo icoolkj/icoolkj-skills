@@ -1,12 +1,12 @@
 ---
 name: md-word-dual
-description: "Markdown 与 Word 的双向转换与「双层文档」生成。把 Markdown 转成带标题层级、表格、代码框的正规 Word，同时把原始 Markdown 压缩藏进同一个 .docx（自定义 XML 部件 + 隐藏文字双重保险），读者双击看 Word，程序一条命令取回逐字节一致的 Markdown；也能把别人的普通 docx 反解成 Markdown。适用于「开发写 md、业务方要 Word」的交付场景，适合需要长期维护、反复导出的文档。不用于纯 Word 排版美化（无 Markdown 源），也不用于 PDF 生成或扫描件识别。"
+description: "Markdown 与 Word 的双向转换与「双层文档」生成。把 Markdown 转成带标题层级、表格、代码框的正规 Word，同时把原始 Markdown 压缩藏进同一个 .docx（自定义 XML 部件 + 隐藏文字双重保险），读者双击看 Word，程序一条命令取回逐字节一致的 Markdown；也能把别人的普通 docx 反解成 Markdown。提供 standard / clean / formal / blog 四套排版预设。适用于「开发写 md、业务方要 Word」的交付场景，适合需要长期维护、反复导出的文档。不用于纯 Word 排版美化（无 Markdown 源），也不用于 PDF 生成或扫描件识别。"
 agent_created: true
-version: 1.0.0
+version: 1.1.0
 display_name: 双层文档（Markdown ⇄ Word）
 display_name_en: Dual-Layer Document (Markdown ⇄ Word)
-description_zh: "Markdown 与 Word 的双向转换与「双层文档」生成。把 Markdown 转成带标题层级、表格、代码框的正规 Word，同时把原始 Markdown 压缩藏进同一个 .docx（自定义 XML 部件 + 隐藏文字双重保险），读者双击看 Word，程序一条命令取回逐字节一致的 Markdown；也能把别人的普通 docx 反解成 Markdown。适用于「开发写 md、业务方要 Word」的交付场景，适合需要长期维护、反复导出的文档。不用于纯 Word 排版美化（无 Markdown 源），也不用于 PDF 生成或扫描件识别。"
-description_en: "Two-way Markdown ↔ Word conversion with a dual-layer .docx: the Markdown is rendered into a properly styled Word document (heading levels, tables, code boxes) while the original Markdown is compressed and stored inside the same .docx as a custom XML part plus hidden text. Readers open it as Word; tools recover byte-identical Markdown with one command. Also converts ordinary .docx files back to Markdown. Suited to delivery workflows where developers write Markdown but stakeholders read Word, and to documents that must be re-exported repeatedly. Not for Word-only layout beautification without a Markdown source, and not for PDF generation or OCR of scanned documents."
+description_zh: "Markdown 与 Word 的双向转换与「双层文档」生成。把 Markdown 转成带标题层级、表格、代码框的正规 Word，同时把原始 Markdown 压缩藏进同一个 .docx（自定义 XML 部件 + 隐藏文字双重保险），读者双击看 Word，程序一条命令取回逐字节一致的 Markdown；也能把别人的普通 docx 反解成 Markdown。提供 standard / clean / formal / blog 四套排版预设。适用于「开发写 md、业务方要 Word」的交付场景，适合需要长期维护、反复导出的文档。不用于纯 Word 排版美化（无 Markdown 源），也不用于 PDF 生成或扫描件识别。"
+description_en: "Two-way Markdown ↔ Word conversion with a dual-layer .docx: the Markdown is rendered into a properly styled Word document (heading levels, tables, code boxes) while the original Markdown is compressed and stored inside the same .docx as a custom XML part plus hidden text. Readers open it as Word; tools recover byte-identical Markdown with one command. Also converts ordinary .docx files back to Markdown. Four layout presets (standard, clean, formal, blog) are available. Suited to delivery workflows where developers write Markdown but stakeholders read Word, and to documents that must be re-exported repeatedly. Not for Word-only layout beautification without a Markdown source, and not for PDF generation or OCR of scanned documents."
 author: icoolkj
 license: MIT
 metadata:
@@ -57,6 +57,23 @@ python scripts/dualdoc.py convert 文档.md      # 出 .docx
 python scripts/dualdoc.py convert 文档.docx    # 出 .md
 ```
 
+## 排版预设
+
+同一份内容可以有四种观感，`--preset` 切换（默认 `standard`），`--style` 是它的别名：
+
+| 预设 | 观感 | 适合 |
+| --- | --- | --- |
+| `standard` | 等线正文 + 雅黑标题，A4 常规页边距 | 通用交付 |
+| `clean` | 全域雅黑，行距更宽，页边距 2cm | 屏幕阅读、内部评审 |
+| `formal` | 仿宋正文 + 黑体标题，左 3.18cm 公文页边距 | 打印、正式报告 |
+| `blog` | 大标题、宽段距，页边距 1.5cm | 线上发布前的预览稿 |
+
+```bash
+python scripts/md2docx.py 报告.md --preset formal
+```
+
+预设只影响可见层，隐藏层与往返一致性完全不受影响；四种预设产出的 docx 都会过同一套自检。
+
 ## 工作流
 
 **交付流程（最常见）**
@@ -85,7 +102,7 @@ python tests/test_roundtrip.py
 
 | 脚本 | 用途 | 关键参数 |
 | --- | --- | --- |
-| `scripts/md2docx.py` | Markdown → 双层 docx | `--toc` 目录域、`--embed-mode both\|customxml\|hidden\|none`、`--title`、`--json` |
+| `scripts/md2docx.py` | Markdown → 双层 docx | `--preset standard\|clean\|formal\|blog`、`--toc` 目录域、`--embed-mode both\|customxml\|hidden\|none`、`--title`、`--json` |
 | `scripts/docx2md.py` | docx → Markdown | `--structure` 强制反解、`--json` |
 | `scripts/dualdoc.py` | 统一入口 | 子命令 `convert` / `verify` / `roundtrip` / `info` |
 | `scripts/docxkit.py` | 核心引擎（供上面三个调用，无 CLI） | —— |

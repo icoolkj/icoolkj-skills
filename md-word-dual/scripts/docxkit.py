@@ -366,48 +366,186 @@ def ordered_xml(wrapper: str, parts: dict, order: list[str]) -> str:
     body = "".join(parts[k] for k in order if k in parts)
     return f"<w:{wrapper}>{body}</w:{wrapper}>"
 
-STYLES_XML = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:styles xmlns:w="{W_NS}">
+# ---------------------------------------------------------------- 排版预设
+#
+# 每种预设只改参数，不改结构。字号单位为半磅（w:sz），行距/段后单位为二十分之一磅。
+# 代码块底色一律用浅色：正文 run 未设颜色，深色底会让代码变成黑底黑字。
+
+PRESETS: dict[str, dict] = {
+    "standard": {
+        "label": "通用：等线正文 + 雅黑标题",
+        "body_ascii": "Calibri",
+        "body_ea": "\u7b49\u7ebf",
+        "head_ea": "\u5fae\u8f6f\u96c5\u9ed1",
+        "mono": "Consolas",
+        "mono_ea": "\u5b8b\u4f53",
+        "body_sz": 22,
+        "title_sz": 40,
+        "h1_sz": 32,
+        "h2_sz": 28,
+        "h3_sz": 24,
+        "h4_sz": 22,
+        "code_sz": 17,
+        "quote_sz": 21,
+        "table_sz": 20,
+        "line_body": 340,
+        "after_body": 140,
+        "head_color": "1F2328",
+        "head4_color": "3D444D",
+        "code_fill": "F6F8FA",
+        "code_border": "D8DEE4",
+        "quote_fill": "F7F8FA",
+        "quote_border": "D0D7DE",
+        "quote_color": "4A5158",
+        "link_color": "0969DA",
+        "table_head_fill": "F2F4F7",
+        "page_w": 11906,
+        "page_h": 16838,
+        "margin": (1134, 1134, 1134, 1134),
+    },
+    "clean": {
+        "label": "简约：全域雅黑，宽行距，适合屏幕阅读",
+        "body_ascii": "Microsoft YaHei",
+        "body_ea": "\u5fae\u8f6f\u96c5\u9ed1",
+        "head_ea": "\u5fae\u8f6f\u96c5\u9ed1",
+        "mono": "Consolas",
+        "mono_ea": "\u5fae\u8f6f\u96c5\u9ed1",
+        "body_sz": 21,
+        "title_sz": 38,
+        "h1_sz": 32,
+        "h2_sz": 26,
+        "h3_sz": 23,
+        "h4_sz": 21,
+        "code_sz": 17,
+        "quote_sz": 20,
+        "table_sz": 19,
+        "line_body": 380,
+        "after_body": 160,
+        "head_color": "111827",
+        "head4_color": "374151",
+        "code_fill": "F5F5F5",
+        "code_border": "E0E0E0",
+        "quote_fill": "F5F7FA",
+        "quote_border": "DDE3EA",
+        "quote_color": "4B5563",
+        "link_color": "1A73E8",
+        "table_head_fill": "E8F0FE",
+        "page_w": 11906,
+        "page_h": 16838,
+        "margin": (1134, 1134, 1134, 1134),
+    },
+    "formal": {
+        "label": "正式：仿宋正文 + 黑体标题，适合打印与公文",
+        "body_ascii": "Times New Roman",
+        "body_ea": "\u4eff\u5b8b",
+        "head_ea": "\u9ed1\u4f53",
+        "mono": "Courier New",
+        "mono_ea": "\u4eff\u5b8b",
+        "body_sz": 24,
+        "title_sz": 40,
+        "h1_sz": 32,
+        "h2_sz": 28,
+        "h3_sz": 24,
+        "h4_sz": 22,
+        "code_sz": 18,
+        "quote_sz": 22,
+        "table_sz": 21,
+        "line_body": 360,
+        "after_body": 120,
+        "head_color": "000000",
+        "head4_color": "000000",
+        "code_fill": "F2F2F2",
+        "code_border": "C8C8C8",
+        "quote_fill": "F7F7F7",
+        "quote_border": "B0B0B0",
+        "quote_color": "333333",
+        "link_color": "000000",
+        "table_head_fill": "E8E8E8",
+        "page_w": 11906,
+        "page_h": 16838,
+        "margin": (1440, 1800, 1440, 1800),
+    },
+    "blog": {
+        "label": "博客：大标题、宽段距，适合在线发布",
+        "body_ascii": "Microsoft YaHei",
+        "body_ea": "\u5fae\u8f6f\u96c5\u9ed1",
+        "head_ea": "\u5fae\u8f6f\u96c5\u9ed1",
+        "mono": "Consolas",
+        "mono_ea": "\u5fae\u8f6f\u96c5\u9ed1",
+        "body_sz": 24,
+        "title_sz": 46,
+        "h1_sz": 36,
+        "h2_sz": 30,
+        "h3_sz": 26,
+        "h4_sz": 23,
+        "code_sz": 19,
+        "quote_sz": 22,
+        "table_sz": 20,
+        "line_body": 420,
+        "after_body": 200,
+        "head_color": "111827",
+        "head4_color": "374151",
+        "code_fill": "F4F6F8",
+        "code_border": "DDE3EA",
+        "quote_fill": "F6F8FA",
+        "quote_border": "CFD8E3",
+        "quote_color": "4B5563",
+        "link_color": "0066CC",
+        "table_head_fill": "EAF2FB",
+        "page_w": 11906,
+        "page_h": 16838,
+        "margin": (851, 1134, 851, 1134),
+    },
+}
+
+
+def get_preset(name: str | None) -> dict:
+    """取预设；名字不认识时回落到 standard，绝不因参数报错。"""
+    return PRESETS.get((name or "standard").lower()) or PRESETS["standard"]
+
+
+_STYLES_TEMPLATE = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="{w_ns}">
   <w:docDefaults>
     <w:rPrDefault>
       <w:rPr>
-        <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="\u7b49\u7ebf" w:cs="Calibri"/>
-        <w:sz w:val="22"/><w:szCs w:val="22"/>
+        <w:rFonts w:ascii="{body_ascii}" w:hAnsi="{body_ascii}" w:eastAsia="{body_ea}" w:cs="{body_ascii}"/>
+        <w:sz w:val="{body_sz}"/><w:szCs w:val="{body_sz}"/>
         <w:lang w:val="en-US" w:eastAsia="zh-CN"/>
       </w:rPr>
     </w:rPrDefault>
     <w:pPrDefault>
-      <w:pPr><w:spacing w:line="340" w:lineRule="auto" w:after="120"/></w:pPr>
+      <w:pPr><w:spacing w:line="{line_body}" w:lineRule="auto" w:after="120"/></w:pPr>
     </w:pPrDefault>
   </w:docDefaults>
   <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
     <w:name w:val="Normal"/><w:qFormat/>
-    <w:pPr><w:spacing w:line="340" w:lineRule="auto" w:after="120"/></w:pPr>
-    <w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="\u7b49\u7ebf"/><w:sz w:val="22"/></w:rPr>
+    <w:pPr><w:spacing w:line="{line_body}" w:lineRule="auto" w:after="120"/></w:pPr>
+    <w:rPr><w:rFonts w:ascii="{body_ascii}" w:hAnsi="{body_ascii}" w:eastAsia="{body_ea}"/><w:sz w:val="{body_sz}"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="BodyText">
     <w:name w:val="Body Text"/><w:basedOn w:val="Normal"/><w:qFormat/>
-    <w:pPr><w:spacing w:line="340" w:lineRule="auto" w:after="140"/><w:ind w:firstLine="0"/></w:pPr>
-    <w:rPr><w:sz w:val="22"/></w:rPr>
+    <w:pPr><w:spacing w:line="{line_body}" w:lineRule="auto" w:after="{after_body}"/><w:ind w:firstLine="0"/></w:pPr>
+    <w:rPr><w:sz w:val="{body_sz}"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Title">
     <w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:next w:val="BodyText"/><w:qFormat/>
     <w:pPr>
       <w:keepNext/>
-      <w:pBdr><w:bottom w:val="single" w:sz="12" w:space="6" w:color="1F2328"/></w:pBdr>
+      <w:pBdr><w:bottom w:val="single" w:sz="12" w:space="6" w:color="{head_color}"/></w:pBdr>
       <w:spacing w:before="0" w:after="240" w:line="300" w:lineRule="auto"/>
     </w:pPr>
-    <w:rPr><w:rFonts w:eastAsia="\u5fae\u8f6f\u96c5\u9ed1"/><w:b/><w:color w:val="1F2328"/><w:sz w:val="40"/></w:rPr>
+    <w:rPr><w:rFonts w:eastAsia="{head_ea}"/><w:b/><w:color w:val="{head_color}"/><w:sz w:val="{title_sz}"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Heading1">
     <w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="BodyText"/><w:qFormat/>
     <w:pPr>
       <w:keepNext/><w:keepLines/>
-      <w:pBdr><w:bottom w:val="single" w:sz="6" w:space="4" w:color="D0D7DE"/></w:pBdr>
+      <w:pBdr><w:bottom w:val="single" w:sz="6" w:space="4" w:color="{quote_border}"/></w:pBdr>
       <w:spacing w:before="360" w:after="140" w:line="300" w:lineRule="auto"/>
       <w:outlineLvl w:val="0"/>
     </w:pPr>
-    <w:rPr><w:rFonts w:eastAsia="\u5fae\u8f6f\u96c5\u9ed1"/><w:b/><w:color w:val="1F2328"/><w:sz w:val="32"/></w:rPr>
+    <w:rPr><w:rFonts w:eastAsia="{head_ea}"/><w:b/><w:color w:val="{head_color}"/><w:sz w:val="{h1_sz}"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Heading2">
     <w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:next w:val="BodyText"/><w:qFormat/>
@@ -415,7 +553,7 @@ STYLES_XML = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <w:keepNext/><w:keepLines/><w:spacing w:before="280" w:after="120" w:line="300" w:lineRule="auto"/>
       <w:outlineLvl w:val="1"/>
     </w:pPr>
-    <w:rPr><w:rFonts w:eastAsia="\u5fae\u8f6f\u96c5\u9ed1"/><w:b/><w:color w:val="1F2328"/><w:sz w:val="28"/></w:rPr>
+    <w:rPr><w:rFonts w:eastAsia="{head_ea}"/><w:b/><w:color w:val="{head_color}"/><w:sz w:val="{h2_sz}"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Heading3">
     <w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:next w:val="BodyText"/><w:qFormat/>
@@ -423,7 +561,7 @@ STYLES_XML = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <w:keepNext/><w:keepLines/><w:spacing w:before="240" w:after="100" w:line="300" w:lineRule="auto"/>
       <w:outlineLvl w:val="2"/>
     </w:pPr>
-    <w:rPr><w:rFonts w:eastAsia="\u5fae\u8f6f\u96c5\u9ed1"/><w:b/><w:color w:val="1F2328"/><w:sz w:val="24"/></w:rPr>
+    <w:rPr><w:rFonts w:eastAsia="{head_ea}"/><w:b/><w:color w:val="{head_color}"/><w:sz w:val="{h3_sz}"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Heading4">
     <w:name w:val="heading 4"/><w:basedOn w:val="Normal"/><w:next w:val="BodyText"/><w:qFormat/>
@@ -431,52 +569,64 @@ STYLES_XML = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <w:keepNext/><w:keepLines/><w:spacing w:before="200" w:after="80" w:line="300" w:lineRule="auto"/>
       <w:outlineLvl w:val="3"/>
     </w:pPr>
-    <w:rPr><w:rFonts w:eastAsia="\u5fae\u8f6f\u96c5\u9ed1"/><w:b/><w:color w:val="3D444D"/><w:sz w:val="22"/></w:rPr>
+    <w:rPr><w:rFonts w:eastAsia="{head_ea}"/><w:b/><w:color w:val="{head4_color}"/><w:sz w:val="{h4_sz}"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="CodeBlock">
     <w:name w:val="Code Block"/><w:basedOn w:val="Normal"/><w:qFormat/>
     <w:pPr>
       <w:pBdr>
-        <w:top w:val="single" w:sz="4" w:space="4" w:color="D8DEE4"/>
-        <w:left w:val="single" w:sz="4" w:space="4" w:color="D8DEE4"/>
-        <w:bottom w:val="single" w:sz="4" w:space="4" w:color="D8DEE4"/>
-        <w:right w:val="single" w:sz="4" w:space="4" w:color="D8DEE4"/>
+        <w:top w:val="single" w:sz="4" w:space="4" w:color="{code_border}"/>
+        <w:left w:val="single" w:sz="4" w:space="4" w:color="{code_border}"/>
+        <w:bottom w:val="single" w:sz="4" w:space="4" w:color="{code_border}"/>
+        <w:right w:val="single" w:sz="4" w:space="4" w:color="{code_border}"/>
       </w:pBdr>
-      <w:shd w:val="clear" w:color="auto" w:fill="F6F8FA"/>
+      <w:shd w:val="clear" w:color="auto" w:fill="{code_fill}"/>
       <w:spacing w:before="120" w:after="120" w:line="240" w:lineRule="auto"/>
       <w:ind w:left="113" w:right="113"/>
     </w:pPr>
     <w:rPr>
-      <w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:cs="Consolas" w:eastAsia="\u5b8b\u4f53"/>
-      <w:sz w:val="17"/><w:szCs w:val="17"/>
+      <w:rFonts w:ascii="{mono}" w:hAnsi="{mono}" w:cs="{mono}" w:eastAsia="{mono_ea}"/>
+      <w:sz w:val="{code_sz}"/><w:szCs w:val="{code_sz}"/>
     </w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Quote">
     <w:name w:val="Quote"/><w:basedOn w:val="Normal"/><w:qFormat/>
     <w:pPr>
-      <w:pBdr><w:left w:val="single" w:sz="18" w:space="8" w:color="D0D7DE"/></w:pBdr>
-      <w:shd w:val="clear" w:color="auto" w:fill="F7F8FA"/>
+      <w:pBdr><w:left w:val="single" w:sz="18" w:space="8" w:color="{quote_border}"/></w:pBdr>
+      <w:shd w:val="clear" w:color="auto" w:fill="{quote_fill}"/>
       <w:spacing w:before="120" w:after="140" w:line="320" w:lineRule="auto"/>
       <w:ind w:left="284" w:right="113"/>
     </w:pPr>
-    <w:rPr><w:color w:val="4A5158"/><w:sz w:val="21"/></w:rPr>
+    <w:rPr><w:color w:val="{quote_color}"/><w:sz w:val="{quote_sz}"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="ListParagraph">
     <w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/><w:qFormat/>
     <w:pPr><w:spacing w:line="320" w:lineRule="auto" w:after="60"/></w:pPr>
-    <w:rPr><w:sz w:val="22"/></w:rPr>
+    <w:rPr><w:sz w:val="{body_sz}"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="TableText">
     <w:name w:val="Table Text"/><w:basedOn w:val="Normal"/>
     <w:pPr><w:spacing w:before="40" w:after="40" w:line="280" w:lineRule="auto"/></w:pPr>
-    <w:rPr><w:sz w:val="20"/></w:rPr>
+    <w:rPr><w:sz w:val="{table_sz}"/></w:rPr>
   </w:style>
   <w:style w:type="character" w:styleId="Hyperlink">
     <w:name w:val="Hyperlink"/>
-    <w:rPr><w:color w:val="0969DA"/><w:u w:val="single"/></w:rPr>
+    <w:rPr><w:color w:val="{link_color}"/><w:u w:val="single"/></w:rPr>
   </w:style>
 </w:styles>
 """
+
+
+def styles_xml(preset: str | None = "standard") -> str:
+    """按预设生成 styles.xml。"""
+    p = dict(get_preset(preset))
+    p["w_ns"] = W_NS
+    return _STYLES_TEMPLATE.format(**p)
+
+
+def preset_choices() -> list[str]:
+    return list(PRESETS.keys())
+
 
 NUMBERING_XML = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:numbering xmlns:w="{W_NS}">
@@ -572,7 +722,10 @@ def image_size(data: bytes) -> tuple[int, int]:
 class DocxBuilder:
     """把 Markdown 块渲染成 word/document.xml 的 body 片段。"""
 
-    def __init__(self, media_dir: str | None = None):
+    def __init__(self, media_dir: str | None = None, preset: str | None = "standard"):
+        self.p = get_preset(preset)
+        # 版心宽度（EMU）：图片超过这个宽度就等比缩到版心内
+        self.content_width_emu = (self.p["page_w"] - self.p["margin"][1] - self.p["margin"][3]) * 635
         self.body: list[str] = []
         self.rels: list[tuple[str, str, str, bool]] = []  # (id, type, target, external)
         self.media: list[tuple[str, bytes]] = []  # (zip 内路径, 数据)
@@ -617,9 +770,9 @@ class DocxBuilder:
         w, h = image_size(data)
         cx = int(w * 9525)
         cy = int(h * 9525)
-        if cx > CONTENT_WIDTH_EMU:
-            cy = int(cy * CONTENT_WIDTH_EMU / cx)
-            cx = CONTENT_WIDTH_EMU
+        if cx > self.content_width_emu:
+            cy = int(cy * self.content_width_emu / cx)
+            cx = self.content_width_emu
         if cy > 9_000_000:
             cx = int(cx * 9_000_000 / cy)
             cy = 9_000_000
@@ -682,7 +835,7 @@ class DocxBuilder:
             if fmt.get("strike"):
                 rp["strike"] = "<w:strike/>"
             if fmt.get("link"):
-                rp["color"] = '<w:color w:val="0969DA"/>'
+                rp["color"] = f'<w:color w:val="{self.p["link_color"]}"/>'
                 rp["u"] = '<w:u w:val="single"/>'
             rpr_xml = ordered_xml("rPr", rp, RPR_ORDER)
             run = f'<w:r>{rpr_xml}<w:t xml:space="preserve">{esc(tok)}</w:t></w:r>'
@@ -768,7 +921,9 @@ class DocxBuilder:
         grid = "".join(f'<w:gridCol w:w="{int(11906 * base / 5000)}"/>' for _ in range(cols))
 
         def cell(text: str, is_head: bool) -> str:
-            shd = '<w:shd w:val="clear" w:color="auto" w:fill="F2F4F7"/>' if is_head else ""
+            shd = (
+                f'<w:shd w:val="clear" w:color="auto" w:fill="{self.p["table_head_fill"]}"/>' if is_head else ""
+            )
             # 单元格内 <br> 转真实换行
             parts = re.split(r"<br\s*/?>", text, flags=re.I)
             runs = ""
@@ -855,9 +1010,10 @@ def build_docx(
     media_dir: str | None = None,
     with_title: bool = True,
     embed_mode: str = "both",
+    preset: str | None = "standard",
 ) -> dict:
     """把块渲染成 .docx；markdown_source 非空时同时写入隐藏层。"""
-    b = DocxBuilder(media_dir=media_dir)
+    b = DocxBuilder(media_dir=media_dir, preset=preset)
 
     if toc:
         b.toc()
@@ -890,10 +1046,12 @@ def build_docx(
         if embed_mode in ("both", "hidden"):
             b.body.append(hidden_md_paragraph(f"{HIDDEN_MARK}{digest}:{packed}"))
 
+    p = b.p
+    m_top, m_right, m_bottom, m_left = p["margin"]
     sect = (
         "<w:sectPr>"
-        '<w:pgSz w:w="11906" w:h="16838"/>'
-        '<w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" '
+        f'<w:pgSz w:w="{p["page_w"]}" w:h="{p["page_h"]}"/>'
+        f'<w:pgMar w:top="{m_top}" w:right="{m_right}" w:bottom="{m_bottom}" w:left="{m_left}" '
         'w:header="851" w:footer="992" w:gutter="0"/>'
         '<w:docGrid w:type="lines" w:linePitch="312"/>'
         "</w:sectPr>"
@@ -996,7 +1154,7 @@ def build_docx(
         ("[Content_Types].xml", content_types),
         ("_rels/.rels", root_rels),
         ("word/document.xml", doc),
-        ("word/styles.xml", STYLES_XML),
+        ("word/styles.xml", styles_xml(preset)),
         ("word/numbering.xml", numbering),
         ("word/settings.xml", SETTINGS_XML),
         ("word/_rels/document.xml.rels", rels_xml),
@@ -1060,6 +1218,7 @@ def markdown_to_docx(
     embed_mode: str = "both",
     toc: bool = False,
     title: str | None = None,
+    preset: str | None = "standard",
 ) -> dict:
     with open(md_path, "r", encoding="utf-8-sig") as fh:
         src = fh.read()
@@ -1076,8 +1235,10 @@ def markdown_to_docx(
         title=doc_title,
         toc=toc,
         media_dir=os.path.dirname(os.path.abspath(md_path)),
+        preset=preset,
     )
     res["title"] = doc_title
+    res["preset"] = get_preset(preset)["label"]
     res["blocks"] = len(blocks)
     res["embedded"] = embed_source
     return res
@@ -1171,12 +1332,34 @@ class _Docx:
             for rel in r:
                 self.rels[rel.get("Id")] = (rel.get("Target", ""), rel.get("TargetMode", "") == "External")
         self.style_names = {}
+        # 样式继承的编号 / 底色：python-docx 这类工具会把列表编号和代码底纹写进样式定义，
+        # 段落上反而没有 numPr，只看段落会漏掉整份列表和代码块
+        self.style_num: dict[str, tuple[str | None, int]] = {}
+        self.style_based: dict[str, str] = {}
+        self.style_shaded: set[str] = set()
         if "word/styles.xml" in self.zf.namelist():
             s = ET.fromstring(self.zf.read("word/styles.xml"))
             for st in s.findall(_q("style")):
                 sid = st.get(_q("styleId"))
                 nm = st.find(_q("name"))
                 self.style_names[sid] = nm.get(_q("val")) if nm is not None else sid
+                based = st.find(_q("basedOn"))
+                if based is not None and based.get(_q("val")):
+                    self.style_based[sid] = based.get(_q("val"))
+                ppr_s = st.find(_q("pPr"))
+                if ppr_s is None:
+                    continue
+                npr_s = ppr_s.find(_q("numPr"))
+                if npr_s is not None:
+                    n_s = npr_s.find(_q("numId"))
+                    l_s = npr_s.find(_q("ilvl"))
+                    self.style_num[sid] = (
+                        n_s.get(_q("val")) if n_s is not None else None,
+                        int(l_s.get(_q("val")) or 0) if l_s is not None else 0,
+                    )
+                shd_s = ppr_s.find(_q("shd"))
+                if shd_s is not None and (shd_s.get(_q("fill")) or "auto").upper() not in ("AUTO", "FFFFFF"):
+                    self.style_shaded.add(sid)
         self.num_fmt = {}
         if "word/numbering.xml" in self.zf.namelist():
             nb = ET.fromstring(self.zf.read("word/numbering.xml"))
@@ -1198,6 +1381,17 @@ class _Docx:
 
     def close(self):
         self.zf.close()
+
+    def style_numpr(self, sid: str | None) -> tuple[str | None, int] | None:
+        """沿 basedOn 链找样式定义里的编号。"""
+        seen: set[str] = set()
+        cur = sid
+        while cur and cur not in seen:
+            seen.add(cur)
+            if cur in self.style_num:
+                return self.style_num[cur]
+            cur = self.style_based.get(cur)
+        return None
 
     def style_level(self, sid: str | None) -> int | None:
         if not sid:
@@ -1259,6 +1453,23 @@ class _Docx:
                 num_id = n.get(_q("val")) if n is not None else None
                 ilvl = int(l.get(_q("val")) or 0) if l is not None else 0
 
+        # 段落上没写编号时，去样式定义里找（python-docx 的 List Bullet / List Number 就是这种）
+        if (num_id is None or num_id == "0") and style:
+            sn = self.style_numpr(style)
+            if sn and sn[0] not in (None, "0"):
+                num_id, ilvl = sn
+
+        # 段落级底色 = 代码块，左侧竖线 = 引用块：有的工具不建样式，直接给段落上格式
+        para_shaded = bool(style and style in self.style_shaded)
+        para_left_bar = False
+        if ppr is not None:
+            shd_p = ppr.find(_q("shd"))
+            if shd_p is not None and (shd_p.get(_q("fill")) or "auto").upper() not in ("AUTO", "FFFFFF"):
+                para_shaded = True
+            pbdr_p = ppr.find(_q("pBdr"))
+            if pbdr_p is not None and pbdr_p.find(_q("left")) is not None:
+                para_left_bar = True
+
         # 收集图文
         chunks = []
         for child in p:
@@ -1292,21 +1503,29 @@ class _Docx:
 
         style_name = (self.style_names.get(style) or style or "").lower()
         level = self.style_level(style)
+        # 底色 + 全等宽才算代码：引用块同样有底纹，只看底纹会把引用误判成代码
+        runs_text = [(t, f) for t, f in chunks if t.strip()]
+        all_mono = bool(runs_text) and all(f.get("code") for _t, f in runs_text)
 
         if level is not None:
+            # 标题本身通常是加粗的，反解时要把行内标记剥掉，否则会出现 "# **标题**"
+            clean = re.sub(r"\*\*|~~|`", "", text).strip().strip("*").strip()
             if level == 0:
-                return "heading", "# " + text.strip()
-            return "heading", f"{'#' * min(max(level, 1), 6)} {text.strip()}"
+                return "heading", "# " + clean
+            return "heading", f"{'#' * min(max(level, 1), 6)} {clean}"
 
-        if style_name in ("code block", "codeblock", "code"):
-            return "code", text
+        if style_name in ("code block", "codeblock", "code") or (para_shaded and all_mono):
+            # 代码行里不再叠加行内标记：等宽字体本身会被判成 `code`，套上反引号反而污染代码
+            return "code", "".join(t for t, _f in chunks).rstrip("\n")
 
-        if style_name in ("quote", "block quote", "intense quote"):
+        if style_name in ("quote", "block quote", "intense quote") or para_left_bar:
             return "quote", text
 
         if num_id is not None:
             fmts = self.num_fmt.get(num_id, {})
-            kind = fmts.get(ilvl, "bullet")
+            kind = fmts.get(ilvl)
+            if kind is None:
+                kind = "decimal" if "number" in style_name else "bullet"
             indent = "  " * ilvl
             if kind == "bullet":
                 return "list", f"{indent}- {text.strip()}"
@@ -1375,7 +1594,7 @@ def docx_to_markdown(docx_path: str, *, prefer_embedded: bool = True) -> tuple[s
                 if kind == "empty" or not text.strip():
                     continue
                 if kind == "code":
-                    items.append(("code", "```\n" + text.rstrip("\n") + "\n```"))
+                    items.append(("code", text.rstrip("\n")))
                 elif kind == "quote":
                     items.append(("quote", "\n".join("> " + ln for ln in text.split("\n"))))
                 else:
@@ -1384,6 +1603,15 @@ def docx_to_markdown(docx_path: str, *, prefer_embedded: bool = True) -> tuple[s
                 t = d.table_md(child)
                 if t:
                     items.append(("table", t))
+
+        # 相邻代码段落合成一个围栏块：有的工具把每行代码写成独立段落
+        merged: list[tuple[str, str]] = []
+        for kind, text in items:
+            if kind == "code" and merged and merged[-1][0] == "code":
+                merged[-1] = ("code", merged[-1][1] + "\n" + text)
+            else:
+                merged.append((kind, text))
+        items = [("code", f"```\n{t}\n```") if k == "code" else (k, t) for k, t in merged]
 
         chunks: list[str] = []
         for i, (kind, text) in enumerate(items):

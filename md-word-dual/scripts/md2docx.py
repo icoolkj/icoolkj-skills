@@ -7,6 +7,7 @@
     python scripts/md2docx.py 文档.md
     python scripts/md2docx.py 文档.md -o 交付版.docx --toc
     python scripts/md2docx.py 文档.md --no-embed      # 只生成纯 Word，不带隐藏层
+    python scripts/md2docx.py 文档.md --preset formal # 换排版预设（standard/clean/formal/blog）
 
 生成的 .docx 同时具备两种形态：
   · 双击打开 → 带标题层级、表格、代码框的 Word 文档
@@ -49,6 +50,7 @@ def convert_one(src: str, args) -> dict:
         embed_mode=args.embed_mode,
         toc=args.toc,
         title=args.title,
+        preset=args.preset,
     )
 
     ok_validate = True
@@ -62,6 +64,7 @@ def convert_one(src: str, args) -> dict:
         "output": res["path"],
         "size": human(res["size"]),
         "blocks": res["blocks"],
+        "preset": res.get("preset", ""),
         "embedded": res.get("embedded"),
         "md_kb": round(res.get("md_bytes", 0) / 1024, 1),
         "valid": ok_validate,
@@ -81,6 +84,9 @@ def main() -> int:
     ap.add_argument("-o", "--output", help="输出 .docx 路径；多个输入时视为输出目录")
     ap.add_argument("--toc", action="store_true", help="插入目录域（Word 中右键更新域生成）")
     ap.add_argument("--title", help="文档属性里的标题，默认取第一个一级标题")
+    ap.add_argument("--preset", "--style", dest="preset", default="standard",
+                    choices=docxkit.preset_choices(),
+                    help="排版预设：standard 通用（默认）/ clean 简约 / formal 正式公文 / blog 博客")
     ap.add_argument("--embed-mode", choices=["both", "customxml", "hidden", "none"], default="both",
                     help="隐藏层写入方式：both=双保险（默认）、customxml=仅自定义部件、hidden=仅隐藏文字、none=纯 Word")
     ap.add_argument("--no-embed", action="store_true", help="等价于 --embed-mode none")
@@ -119,6 +125,7 @@ def main() -> int:
         for r in results:
             flag = "✓" if r["valid"] else "✗"
             print(f"{flag} {os.path.basename(r['output'])}  {r['size']}  {r['blocks']} 块")
+            print(f"   排版：{r['preset']}")
             print(f"   隐藏层：{'已写入 ' + str(r['md_kb']) + ' KB' if r['embedded'] else '未写入（纯 Word）'}")
             if not r["valid"]:
                 for p in r["problems"]:
