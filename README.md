@@ -15,6 +15,7 @@ icoolkj AI Agent 标准化技能库，沉淀可直接给大模型调用的工具
 | `data-report-agent-skill` | 1.2.0 | 数据分析报告 Agent：模型主导需求澄清、章节与图表设计、生成并修复 report.json | 分析这份数据、出个分析报告、按业务目标定制报告 |
 | `data-report-creator` | 1.2.1 | 数据分析报告生成工具：人工配置 report.json + CLI 流水线导出 | report.json、CLI 生成报告、手工调章节 |
 | `security-scanner` | 1.0.0 | 本地文件安全查杀：快速/标准/深度三档扫描，四类结果分级 | 扫描、查毒、杀毒、检查病毒、扫描U盘 |
+| `md-word-dual` | 1.0.0 | 双层文档：Markdown 转正规 Word，同时把原文藏进同一个 docx，可逐字节取回 | markdown 转 word、word 转 markdown、双层文档、给业务方交付 word |
 
 技能边界：`note-intel` 只做平台无关的素材包；需要多平台差异化表达用 `self-media-content-organizer`；小红书卡片成品用 `xhs-content-studio`；数据分析报告按"模型主导 / 人工配置"二选一。
 
