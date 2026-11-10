@@ -81,6 +81,8 @@ def check_skill(skill_dir):
             problems.append(f"frontmatter 缺字段: {', '.join(missing)}")
         if not fm.get("license", "").strip():
             problems.append("license 字段为空，必须明确技能许可证")
+        if not fm.get("license", "").strip():
+            problems.append("license 字段为空，必须明确技能许可证")
         if fm.get("name") != skill_dir.name:
             problems.append(f"name 字段({fm.get('name')}) 与目录名({skill_dir.name}) 不一致")
         version = fm.get("version", "")
