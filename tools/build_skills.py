@@ -29,7 +29,7 @@ EXCLUDE_SUFFIXES = {".pyc", ".pyo", ".log", ".zip", ".tmp"}
 
 SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$")
 REQUIRED_KEYS = ("name", "description", "agent_created", "version",
-                 "display_name", "display_name_en", "description_zh", "description_en")
+                 "display_name", "display_name_en", "description_zh", "description_en", "license")
 
 
 def iter_files(skill_dir):
@@ -79,6 +79,8 @@ def check_skill(skill_dir):
         missing = [k for k in REQUIRED_KEYS if k not in fm]
         if missing:
             problems.append(f"frontmatter 缺字段: {', '.join(missing)}")
+        if not fm.get("license", "").strip():
+            problems.append("license 字段为空，必须明确技能许可证")
         if fm.get("name") != skill_dir.name:
             problems.append(f"name 字段({fm.get('name')}) 与目录名({skill_dir.name}) 不一致")
         version = fm.get("version", "")
