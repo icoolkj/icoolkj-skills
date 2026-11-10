@@ -23,7 +23,7 @@ author: icoolkj
 license: MIT
 metadata:
   homepage: https://icoolkj.com
-  email: icoolkj@163.com
+  contact: icoolkj@163.com
   qq: "594047667"
   icon: assets/icon.png
 ---
