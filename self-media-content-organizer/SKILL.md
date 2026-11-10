@@ -11,6 +11,7 @@ author: icoolkj
 license: MIT
 metadata:
   homepage: https://icoolkj.com
+  repository: https://github.com/icoolkj/icoolkj-skills
   contact: icoolkj@163.com
   qq: "594047667"
 ---
