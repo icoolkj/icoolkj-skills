@@ -18,7 +18,6 @@ description_en: |
   potential malware and suspicious scripts. Supports quick, standard and deep scanning strategies with
   filtering by file type such as EXE, DLL, MSI, JS and PS1, shows live scanning progress, and produces a
   classified report covering no-detection, suspicious, malicious and unscannable files, with coverage status.
-allowed-tools: Bash(python:*)
 author: icoolkj
 license: MIT
 metadata:
@@ -26,6 +25,7 @@ metadata:
   contact: icoolkj@163.com
   qq: "594047667"
   icon: assets/icon.png
+allowed-tools: Bash(python:*)
 ---
 
 # Security Scanner：本地静态风险扫描工具
