@@ -141,7 +141,8 @@ python tools/build_evals.py security-scanner   # 只打一个
 可无缝对接 DeepSeek Harness、LM Studio、私有化 Agent 调度平台，支持本地离线模型调用。
 
 ## 开源协议
-[MIT](./LICENSE)
+[MIT](./LICENSE)  
+仓库级许可、版权与元数据规范见 [docs/REPOSITORY_STANDARDS.md](./docs/REPOSITORY_STANDARDS.md)。第三方资产登记见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
 
 Copyright © 2026 icoolkj.com
 
