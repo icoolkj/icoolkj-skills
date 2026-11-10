@@ -14,7 +14,7 @@ icoolkj AI Agent 标准化技能库，沉淀可直接给大模型调用的工具
 | `xhs-content-studio` | 1.0.2 | 小红书专用：事实驱动文案 + 自适应 3:4 轮播卡片 + 可编辑视觉工作台 | 小红书、轮播图、卡片、发布小红书 |
 | `data-report-agent-skill` | 1.2.0 | 数据分析报告 Agent：模型主导需求澄清、章节与图表设计、生成并修复 report.json | 分析这份数据、出个分析报告、按业务目标定制报告 |
 | `data-report-creator` | 1.2.1 | 数据分析报告生成工具：人工配置 report.json + CLI 流水线导出 | report.json、CLI 生成报告、手工调章节 |
-| `security-scanner` | 1.0.0 | 本地文件安全查杀：快速/标准/深度三档扫描，四类结果分级 | 扫描、查毒、杀毒、检查病毒、扫描U盘 |
+| `security-scanner` | 1.1.2 | 本地静态风险扫描：快速/标准/深度三档扫描，四类结果分级；不删除、不隔离文件 | 扫描文件、检查可疑脚本、扫描U盘 |
 | `md-word-dual` | 1.1.0 | 双层文档：Markdown 转正规 Word，同时把原文藏进同一个 docx，可逐字节取回；四套排版预设 | markdown 转 word、word 转 markdown、双层文档、正式公文 word、给业务方交付 word |
 
 已归档：`md-doc-bridge`（第一版双层文档实现）已移到 `archive/`，由 `md-word-dual` 取代，原因见 `archive/README.md`。
