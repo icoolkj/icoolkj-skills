@@ -31,6 +31,7 @@ SKILLS = [
     "security-scanner",
     "self-media-content-organizer",
     "xhs-content-studio",
+    "md-word-dual",
 ]
 
 # 打包时会被排除、不需要检查的目录/文件

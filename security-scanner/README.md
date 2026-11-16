@@ -1,4 +1,4 @@
-# ScanOnDemand / Security Scanner 1.1.0
+# Security Scanner 1.1.2
 
 本版本是 P0 安全修复版，保留原有静态检测能力，重点修复“检查失败仍显示安全”、扫描覆盖率不透明、链接路径风险和压缩包部分检查被误认为完整等问题。
 
