@@ -1,6 +1,7 @@
 """Synthetic contract tests only; no model calls or commercial acceptance claims."""
 import copy
 import importlib.util
+import hashlib
 import json
 import struct
 import tempfile
@@ -137,9 +138,154 @@ class ContractTests(unittest.TestCase):
         self.data["items"][0]["artifact"] = {"kind": "remote", "location": "attachment:test-only"}
         self.assertEqual(self.errors(), [])
 
+    def make_v2(self, method="generated"):
+        self.data.update(schema_version=2, skill_version="1.0.2")
+        item = self.data["items"][0]
+        item["production"] = {"method": method}
+        for key in delivery.EXTENDED:
+            item["checks"][key] = {"status": "pass", "evidence": "synthetic test only"}
+            item["applicable"].append(key)
+        if method == "deterministic":
+            item["production"].update(brand_id="test", recipe="test.json", layout_report="layout.json")
+            (self.base / "preview.png").write_bytes(png())
+            recipe = {"schema_version": 1, "canvas": {"width": 3, "height": 4}, "brand": "brand.json", "blocks": [{"type": "rect"}]}
+            (self.base / "test.json").write_text(json.dumps(recipe), encoding="utf-8")
+            (self.base / "brand.json").write_text(json.dumps({"schema_version": 1, "id": "test"}), encoding="utf-8")
+            self.report = {"schema_version": 1, "brand_id": "test",
+                           "artifact": {"location": "poster.png", "sha256": hashlib.sha256(png()).hexdigest(),
+                                        "width": 3, "height": 4, "format": "PNG"},
+                           "preview": {"location": "preview.png", "width": 3, "height": 4, "sha256": hashlib.sha256(png()).hexdigest()},
+                           "reproducibility": {"config": {"sha256": hashlib.sha256((self.base / "test.json").read_bytes()).hexdigest()},
+                                               "brand": {"sha256": hashlib.sha256((self.base / "brand.json").read_bytes()).hexdigest()}},
+                           "checks": {k: {"status": "pass", "evidence": "synthetic"}
+                                      for k in ("layout", "readability", "assets")}}
+            self.save_report()
+        return item
+
+    def save_report(self):
+        (self.base / "layout.json").write_text(json.dumps(self.report), encoding="utf-8")
+
+    def test_v2_generated_record(self):
+        self.make_v2()
+        self.assertEqual(self.errors(), [])
+
+    def test_v2_cannot_downgrade_schema(self):
+        self.data["skill_version"] = "1.0.2"
+        self.assertTrue(self.errors())
+
+    def test_v2_requires_readability(self):
+        item = self.make_v2()
+        del item["checks"]["readability"]
+        self.assertTrue(self.errors())
+
+    def test_v2_unknown_check_not_silently_ignored(self):
+        item = self.make_v2()
+        item["checks"]["assetz"] = {"status": "fail", "evidence": "typo"}
+        self.assertTrue(self.errors())
+
+    def test_v2_requires_production(self):
+        item = self.make_v2()
+        del item["production"]
+        self.assertTrue(self.errors())
+
+    def test_bound_report_valid(self):
+        self.make_v2("deterministic")
+        self.assertEqual(self.errors(), [])
+
+    def test_stale_report_hash(self):
+        self.make_v2("deterministic")
+        (self.base / "poster.png").write_bytes(png() + b"changed")
+        self.assertTrue(self.errors())
+
+    def test_missing_mobile_preview(self):
+        self.make_v2("deterministic")
+        self.report["preview"]["location"] = "missing.png"
+        self.save_report()
+        self.assertTrue(self.errors())
+
+    def test_missing_recipe_blocks_delivery(self):
+        item = self.make_v2("deterministic")
+        item["production"]["recipe"] = "missing.json"
+        self.assertTrue(self.errors())
+
+    def test_changed_recipe_blocks_old_evidence(self):
+        self.make_v2("deterministic")
+        with (self.base / "test.json").open("a", encoding="utf-8") as stream:
+            stream.write(" ")
+        self.assertTrue(self.errors())
+
+    def test_changed_brand_config_blocks_old_evidence(self):
+        self.make_v2("deterministic")
+        with (self.base / "brand.json").open("a", encoding="utf-8") as stream:
+            stream.write(" ")
+        self.assertTrue(self.errors())
+
+    def test_stale_preview_same_dimensions(self):
+        self.make_v2("deterministic")
+        (self.base / "preview.png").write_bytes(png() + b"changed")
+        self.assertTrue(self.errors())
+
+    def test_preview_wrong_ratio(self):
+        self.make_v2("deterministic")
+        raw = png(3, 3)
+        (self.base / "preview.png").write_bytes(raw)
+        self.report["preview"].update(height=3, sha256=hashlib.sha256(raw).hexdigest())
+        self.save_report()
+        self.assertTrue(self.errors())
+
+    def test_report_brand_mismatch(self):
+        self.make_v2("deterministic")
+        self.report["brand_id"] = "other"
+        self.save_report()
+        self.assertTrue(self.errors())
+
+    def test_failed_readability_cannot_claim_pass(self):
+        self.make_v2("deterministic")
+        self.report["checks"]["readability"]["status"] = "fail"
+        self.save_report()
+        self.assertTrue(self.errors())
+
+    def test_draft_can_record_readability_failure(self):
+        item = self.make_v2("deterministic")
+        item.update(status="draft", reason="small type")
+        item["checks"]["readability"]["status"] = "fail"
+        self.report["checks"]["readability"]["status"] = "fail"
+        self.save_report()
+        self.assertEqual(self.errors(), [])
+
+    def test_manual_asset_review_binds_same_artifact(self):
+        item = self.make_v2("deterministic")
+        self.report["checks"]["assets"]["status"] = "unverified"
+        self.save_report()
+        self.assertTrue(self.errors())
+        item["production"]["review_overrides"] = {"assets": {"evidence": "synthetic review", "artifact_sha256": self.report["artifact"]["sha256"]}}
+        self.assertEqual(self.errors(), [])
+        item["production"]["review_overrides"]["assets"]["artifact_sha256"] = "stale"
+        self.assertTrue(self.errors())
+
+    def test_fail_cannot_be_overridden(self):
+        item = self.make_v2("deterministic")
+        self.report["checks"]["readability"]["status"] = "fail"
+        item["production"]["review_overrides"] = {"readability": {"evidence": "synthetic review", "artifact_sha256": self.report["artifact"]["sha256"]}}
+        self.save_report()
+        self.assertTrue(self.errors())
+
+    def test_malformed_layout_report(self):
+        self.make_v2("deterministic")
+        self.report["artifact"] = None
+        self.save_report()
+        self.assertTrue(self.errors())
+
+    def test_v2_text_only_needs_no_layout_report(self):
+        item = self.make_v2()
+        self.data["mode"] = "prompt"
+        item.update(status="plan_only", artifact=None, attempts=0, reason="prompt only")
+        del item["production"]
+        self.assertEqual(self.errors(), [])
+
     def test_cases_are_not_claimed_as_passed(self):
         cases = json.loads((Path(__file__).parent / "acceptance.json").read_text(encoding="utf-8"))["cases"]
-        self.assertEqual(len({c["id"] for c in cases}), 18)
+        self.assertEqual(len({c["id"] for c in cases}), 26)
         self.assertTrue(all(c["status"] == "not_run" for c in cases))
 
 

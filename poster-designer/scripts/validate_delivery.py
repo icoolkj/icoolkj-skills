@@ -1,11 +1,13 @@
 """Validate delivery records, not visual quality. Python 3.9+, standard library only."""
 import argparse
+import hashlib
 import json
 import struct
 from pathlib import Path
 
 CHECKS = {"content", "visual", "dimensions", "access", "brand", "edit_scope", "qr", "rights", "print"}
 BASE = {"content", "visual", "dimensions", "access"}
+EXTENDED = {"readability", "assets"}
 STATES = {"pass", "fail", "unverified", "not_applicable"}
 
 
@@ -57,6 +59,98 @@ def image_info(path):
     raise ValueError("unsupported or invalid image header (PNG/JPEG/GIF required)")
 
 
+def check_production(item, base, checks):
+    """Bind deterministic preflight evidence to the actual output; no visual approval."""
+    production = item.get("production")
+    if not isinstance(production, dict) or production.get("method") not in ("generated", "edited", "deterministic"):
+        return ["production.method must be generated/edited/deterministic"]
+    if production["method"] != "deterministic":
+        return []
+    errors = []
+    if not text(production.get("brand_id")) or not text(production.get("recipe")):
+        errors.append("deterministic production requires brand_id and recipe")
+    if not text(production.get("layout_report")):
+        return errors + ["deterministic production requires layout_report"]
+    artifact = item.get("artifact", {})
+    if artifact.get("kind") != "local":
+        return errors + ["deterministic evidence requires local artifact"]
+    try:
+        path = base / production["layout_report"]
+        report = json.loads(path.read_text(encoding="utf-8-sig"))
+        if not isinstance(report, dict) or report.get("schema_version") != 1:
+            return errors + ["invalid layout report schema"]
+        recipe_path = (base / production["recipe"]).resolve()
+        recipe_bytes = recipe_path.read_bytes()
+        recipe = json.loads(recipe_bytes.decode("utf-8-sig"))
+        if (not isinstance(recipe, dict) or recipe.get("schema_version") != 1
+                or not isinstance(recipe.get("blocks"), list) or not recipe["blocks"]
+                or not isinstance(recipe.get("canvas"), dict) or not text(recipe.get("brand"))):
+            return errors + ["invalid deterministic recipe"]
+        provenance = report.get("reproducibility", {})
+        recorded_recipe = provenance.get("config", {})
+        if recorded_recipe.get("sha256") != hashlib.sha256(recipe_bytes).hexdigest():
+            errors.append("layout report recipe hash mismatch")
+        brand_path = (recipe_path.parent / recipe["brand"]).resolve()
+        brand_bytes = brand_path.read_bytes()
+        brand = json.loads(brand_bytes.decode("utf-8-sig"))
+        if not isinstance(brand, dict) or brand.get("id") != production.get("brand_id"):
+            errors.append("recipe brand id mismatch")
+        if provenance.get("brand", {}).get("sha256") != hashlib.sha256(brand_bytes).hexdigest():
+            errors.append("layout report brand config hash mismatch")
+        actual_path = (base / artifact["location"]).resolve()
+        digest = hashlib.sha256(actual_path.read_bytes()).hexdigest()
+        meta = report.get("artifact", {})
+        if not isinstance(meta, dict) or meta.get("sha256") != digest:
+            errors.append("layout report artifact hash mismatch")
+        else:
+            if not text(meta.get("location")) or (path.parent / meta["location"]).resolve() != actual_path:
+                errors.append("layout report artifact location mismatch")
+            actual = item.get("actual", {})
+            if any(meta.get(k) != actual.get(k) for k in ("width", "height", "format")):
+                errors.append("layout report metadata mismatch")
+        if report.get("brand_id") != production.get("brand_id"):
+            errors.append("layout report brand mismatch")
+        preview = report.get("preview", {})
+        if not isinstance(preview, dict) or not text(preview.get("location")):
+            errors.append("layout report preview required")
+        else:
+            preview_path = path.parent / preview["location"]
+            w, h, fmt = image_info(preview_path)
+            if w != preview.get("width") or h != preview.get("height") or fmt != "PNG":
+                errors.append("layout preview metadata mismatch")
+            if preview.get("sha256") != hashlib.sha256(preview_path.read_bytes()).hexdigest():
+                errors.append("layout preview hash mismatch")
+            actual = item.get("actual", {})
+            if (not positive(actual.get("width")) or not positive(actual.get("height"))
+                    or w > actual["width"] or h != max(1, round(actual["height"] * w / actual["width"]))):
+                errors.append("layout preview ratio/size mismatch")
+        preflight = report.get("checks", {})
+        if not isinstance(preflight, dict):
+            return errors + ["layout report checks required"]
+        layout = preflight.get("layout", {})
+        if not isinstance(layout, dict) or layout.get("status") != "pass" or not text(layout.get("evidence")):
+            errors.append("layout preflight must pass before image delivery")
+        overrides = production.get("review_overrides", {})
+        if not isinstance(overrides, dict) or not set(overrides) <= EXTENDED:
+            return errors + ["invalid review_overrides"]
+        for name in EXTENDED:
+            result = preflight.get(name, {})
+            claim = checks.get(name, {})
+            if not isinstance(result, dict) or result.get("status") not in ("pass", "fail", "unverified") or not text(result.get("evidence")):
+                errors.append("invalid " + name + " preflight evidence")
+                continue
+            if not isinstance(claim, dict):
+                continue
+            override = overrides.get(name, {})
+            manual = (result["status"] == "unverified" and isinstance(override, dict)
+                      and text(override.get("evidence")) and override.get("artifact_sha256") == digest)
+            if claim.get("status") == "pass" and result["status"] != "pass" and not manual:
+                errors.append(name + " preflight unresolved; fail cannot be overridden")
+        return errors
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, struct.error) as exc:
+        return errors + ["layout report: " + str(exc)]
+
+
 def validate(data, base):
     errors = []
 
@@ -66,8 +160,13 @@ def validate(data, base):
 
     if not isinstance(data, dict):
         return ["record must be an object"]
-    require(type(data.get("schema_version")) is int and data["schema_version"] == 1, "schema_version must be 1")
+    schema = data.get("schema_version")
+    require(type(schema) is int and schema in (1, 2), "schema_version must be 1 or 2")
+    check_names = CHECKS | EXTENDED if schema == 2 else CHECKS
+    base_checks = BASE | EXTENDED if schema == 2 else BASE
     require(text(data.get("skill_version")), "skill_version required")
+    if data.get("skill_version") == "1.0.2":
+        require(schema == 2, "V1.0.2 requires schema_version 2")
     mode = data.get("mode")
     require(mode in ("plan", "prompt", "image", "edit"), "invalid mode")
     require(positive(data.get("requested_count")), "requested_count must be a positive integer")
@@ -136,8 +235,9 @@ def validate(data, base):
         if not isinstance(applicable, list) or not all(text(v) for v in applicable):
             errors.append(prefix + "invalid applicable checks")
             applicable = []
-        require(set(applicable) <= CHECKS, prefix + "unknown applicable check")
-        for name in CHECKS:
+        require(set(applicable) <= check_names, prefix + "unknown applicable check")
+        require(set(checks) <= check_names, prefix + "unknown check field")
+        for name in check_names:
             check = checks.get(name)
             if not isinstance(check, dict):
                 errors.append(prefix + name + " check missing")
@@ -151,7 +251,7 @@ def validate(data, base):
         if status in ("plan_only", "blocked"):
             require(artifact is None, prefix + "non-image status must not claim artifact")
             continue
-        require(BASE <= set(applicable), prefix + "base checks must be applicable")
+        require(base_checks <= set(applicable), prefix + "base checks must be applicable")
         if mode == "edit":
             require("edit_scope" in applicable, prefix + "edit_scope required")
         if not isinstance(artifact, dict) or artifact.get("kind") not in ("local", "remote") or not text(artifact.get("location")):
@@ -173,6 +273,8 @@ def validate(data, base):
                 require(Path(key).suffix.lower() in extensions[fmt], prefix + "extension differs from format")
             except (OSError, ValueError, struct.error) as exc:
                 errors.append(prefix + "artifact: " + str(exc))
+        if schema == 2:
+            errors.extend(prefix + error for error in check_production(item, base, checks))
         valid_actual = isinstance(actual, dict) and positive(actual.get("width")) and positive(actual.get("height")) and text(actual.get("format"))
         if status == "ready":
             require(valid_actual, prefix + "ready requires actual metadata")

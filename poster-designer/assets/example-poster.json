@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "brand": "example-brand.json",
+  "canvas": {"width": 1200, "height": 1600, "background": "background"},
+  "reading": {"mode": "mobile", "preview_width": 390, "min_font_px": 12},
+  "prompt": "公开的虚构技术演示海报：浅色背景、蓝色强调、三张独立步骤卡片，演示输入资料、字段匹配和输出结果。不是实际产品，不包含客户名称或真实 Logo。配置实际中文字体后运行。",
+  "required_copy": [
+    {"id": "title", "text": "资料处理流程演示", "source": "虚构技术演示文案"},
+    {"id": "scope", "text": "虚构示例 · 不代表实际产品", "source": "演示范围说明"},
+    {"id": "step1", "text": "01 输入资料", "source": "示意流程"},
+    {"id": "body1", "text": "整理示例文本，明确待处理字段。", "source": "示意流程"},
+    {"id": "step2", "text": "02 字段匹配", "source": "示意流程"},
+    {"id": "body2", "text": "按示例规则匹配，保留原文信息。", "source": "示意流程"},
+    {"id": "step3", "text": "03 输出结果", "source": "示意流程"},
+    {"id": "body3", "text": "生成结果草稿，逐项人工核对。", "source": "示意流程"}
+  ],
+  "blocks": [
+    {"id": "heading", "type": "text", "box": [90, 100, 1020, 130], "text": "资料处理流程演示", "font": "title", "font_size": 72, "color": "ink", "required_ids": ["title"]},
+    {"id": "scope", "type": "text", "box": [90, 240, 1020, 90], "text": "虚构示例 · 不代表实际产品", "font": "body", "font_size": 40, "color": "muted", "required_ids": ["scope"]},
+    {"id": "card1", "type": "rect", "box": [80, 390, 1040, 280], "fill": "surface", "radius": 24},
+    {"id": "step1", "type": "text", "box": [130, 430, 940, 85], "text": "01 输入资料", "font": "title", "font_size": 52, "color": "accent", "required_ids": ["step1"]},
+    {"id": "body1", "type": "text", "box": [130, 540, 940, 90], "text": "整理示例文本，明确待处理字段。", "font": "body", "font_size": 40, "color": "ink", "required_ids": ["body1"]},
+    {"id": "card2", "type": "rect", "box": [80, 720, 1040, 280], "fill": "surface", "radius": 24},
+    {"id": "step2", "type": "text", "box": [130, 760, 940, 85], "text": "02 字段匹配", "font": "title", "font_size": 52, "color": "accent", "required_ids": ["step2"]},
+    {"id": "body2", "type": "text", "box": [130, 870, 940, 90], "text": "按示例规则匹配，保留原文信息。", "font": "body", "font_size": 40, "color": "ink", "required_ids": ["body2"]},
+    {"id": "card3", "type": "rect", "box": [80, 1050, 1040, 280], "fill": "surface", "radius": 24},
+    {"id": "step3", "type": "text", "box": [130, 1090, 940, 85], "text": "03 输出结果", "font": "title", "font_size": 52, "color": "accent", "required_ids": ["step3"]},
+    {"id": "body3", "type": "text", "box": [130, 1200, 940, 90], "text": "生成结果草稿，逐项人工核对。", "font": "body", "font_size": 40, "color": "ink", "required_ids": ["body3"]},
+    {"id": "footer", "type": "text", "box": [90, 1430, 1020, 80], "text": "仅展示排版与流程，不作功能承诺。", "font": "body", "font_size": 40, "color": "muted", "align": "center"}
+  ]
+}
