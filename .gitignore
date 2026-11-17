@@ -24,3 +24,6 @@ venv/
 
 # 打包产物
 dist/
+
+# 海报任务输出（含客户素材，不入库）
+poster-output/
