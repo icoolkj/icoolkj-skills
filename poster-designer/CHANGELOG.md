@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.4 - 结构对齐 security-scanner 模板
+
+- `SKILL.md` 按仓库标准骨架重排：标题（`Poster Designer：AI 宣传海报设计师`）→ 一句话摘要 →
+  核心原则 → 何时触发 → 工作流（Phase 1–5）→ 决策规则 → 安全约束 → 资源导航 → 依赖 → 关于。
+- frontmatter 的 `description` / `description_zh` / `description_en` 改为多行块，补触发词行
+  （做海报、宣传图、产品海报、活动海报、电商主图、海报改图、海报方案、生图提示词等）。
+- 新增 `allowed-tools: Bash(python:*)`，与本地排版/校验脚本的调用方式一致。
+- 原 8 节规则内容全部保留并归并：素材只读、必保留清单 ID、四类交付路径、3 次调用预算、
+  逐张状态与检查项、发布门槛等，无规则删减。
+- `compose_poster.py` 的 `SKILL_VERSION`、`evaluation/acceptance.json` 同步 1.0.4。
+
 ## 1.0.3 - 规范对齐版
 
 - `SKILL.md` frontmatter 补齐 `description_zh`、`description_en`，字段顺序与仓库其他技能统一
