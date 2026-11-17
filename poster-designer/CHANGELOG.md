@@ -1,8 +1,8 @@
 # Changelog
 
-## 1.0.4 - 结构对齐 security-scanner 模板
+## 1.0.4 - SKILL.md 结构重排
 
-- `SKILL.md` 按仓库标准骨架重排：标题（`Poster Designer：AI 宣传海报设计师`）→ 一句话摘要 →
+- `SKILL.md` 章节结构重排：标题（`Poster Designer：AI 宣传海报设计师`）→ 一句话摘要 →
   核心原则 → 何时触发 → 工作流（Phase 1–5）→ 决策规则 → 安全约束 → 资源导航 → 依赖 → 关于。
 - frontmatter 的 `description` / `description_zh` / `description_en` 改为多行块，补触发词行
   （做海报、宣传图、产品海报、活动海报、电商主图、海报改图、海报方案、生图提示词等）。
@@ -11,16 +11,15 @@
   逐张状态与检查项、发布门槛等，无规则删减。
 - `compose_poster.py` 的 `SKILL_VERSION`、`evaluation/acceptance.json` 同步 1.0.4。
 
-## 1.0.3 - 规范对齐版
+## 1.0.3 - 元数据与文档规范
 
-- `SKILL.md` frontmatter 补齐 `description_zh`、`description_en`，字段顺序与仓库其他技能统一
-  （`name → description → agent_created → version → display_name → display_name_en →
-  description_zh → description_en → author → license → metadata`）。
+- `SKILL.md` frontmatter 补齐 `description_zh`、`description_en`，字段顺序修正为
+  `name → description → agent_created → version → display_name → display_name_en →
+  description_zh → description_en → author → license → metadata`。
 - `description` 末尾补「不用于…」边界句：VI 系统设计、视频制作、多页宣传册、印刷生产管理、
   营销内容自动发布不在本技能范围。
-- `metadata` 与仓库统一：`homepage` + `repository` + `contact` + `qq`（原 `email` 改为 `contact`，
-  仓库地址指向本仓库）。
-- 文末增加统一「关于」页脚（出品 / 官网 / 邮箱 / QQ / 许可 + Copyright）。
+- `metadata` 修正为 `homepage` + `repository` + `contact` + `qq`（原 `email` 改为 `contact`）。
+- 文末增加「关于」页脚（出品 / 官网 / 邮箱 / QQ / 许可 + Copyright）。
 - `scripts/validate_delivery.py` 的版本门槛由「仅 1.0.2」改为「≥1.0.2」的版本元组比较，
   后续版本升级不再需要改校验逻辑；`scripts/compose_poster.py` 的 `SKILL_VERSION` 同步为 1.0.3。
 - `evaluation/acceptance.json` 的 `skill_version` 同步为 1.0.3。
