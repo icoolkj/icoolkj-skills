@@ -6,7 +6,7 @@ description: |
   主视觉＋确定性排版、原图编辑或方案降级，并逐张核对文字、尺寸与素材。
   触发词：做海报、宣传图、产品海报、活动海报、电商主图、海报改图、海报方案、生图提示词、poster design、poster prompt。
 agent_created: true
-version: 1.0.4
+version: 1.1.2
 display_name: AI 宣传海报设计师
 display_name_en: Poster Designer
 description_zh: |

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.2 - 版本号接续已发布版本
+
+- 版本号 1.0.4 → 1.1.2：已发布的 1.1.1 包在平台侧为当前最新版本，
+  本次发布需大于该版本，故接续递增至 1.1.2。
+- 交付内容与 1.0.4 一致（SKILL.md 结构重排、元数据规范、排版组件与交付预检无变更）；
+  `scripts/compose_poster.py` 的 `SKILL_VERSION`、`evaluation/acceptance.json` 同步 1.1.2。
+
 ## 1.0.4 - SKILL.md 结构重排
 
 - `SKILL.md` 章节结构重排：标题（`Poster Designer：AI 宣传海报设计师`）→ 一句话摘要 →
