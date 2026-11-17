@@ -19,6 +19,18 @@ def text(value):
     return isinstance(value, str) and bool(value.strip())
 
 
+def version_tuple(value):
+    """把 "1.0.3" 解析成 (1, 0, 3)；无法解析时返回 (0,)。"""
+    if not isinstance(value, str):
+        return (0,)
+    parts = []
+    for chunk in value.strip().lstrip("vV").split("."):
+        if not chunk.isdigit():
+            return (0,)
+        parts.append(int(chunk))
+    return tuple(parts) or (0,)
+
+
 def image_info(path):
     """Read header dimensions; this does not prove that all pixels decode correctly."""
     with path.open("rb") as stream:
@@ -165,8 +177,8 @@ def validate(data, base):
     check_names = CHECKS | EXTENDED if schema == 2 else CHECKS
     base_checks = BASE | EXTENDED if schema == 2 else BASE
     require(text(data.get("skill_version")), "skill_version required")
-    if data.get("skill_version") == "1.0.2":
-        require(schema == 2, "V1.0.2 requires schema_version 2")
+    if version_tuple(data.get("skill_version")) >= (1, 0, 2):
+        require(schema == 2, "V1.0.2 及更高版本要求 schema_version 2")
     mode = data.get("mode")
     require(mode in ("plan", "prompt", "image", "edit"), "invalid mode")
     require(positive(data.get("requested_count")), "requested_count must be a positive integer")

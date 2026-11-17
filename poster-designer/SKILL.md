@@ -1,19 +1,22 @@
 ---
 name: poster-designer
-description: AI 宣传海报设计师。适用于产品、软件、活动和电商宣传海报的新建与修改，以及仅需设计方案或生图提示词的请求。整理用户文案、Logo、产品图与参考图，锁定关键事实，策划版式，按宿主能力生成和质检独立图片；能力不足时交付明确标注的方案或草稿。
+description: AI 宣传海报设计师。适用于产品、软件、活动和电商宣传海报的新建与修改，以及仅需设计方案或生图提示词的请求。整理用户文案、Logo、产品图与参考图，锁定关键事实，策划版式，按宿主能力生成和质检独立图片；能力不足时交付明确标注的方案或草稿。不用于 VI 系统设计、视频制作、多页宣传册、印刷生产管理或营销内容自动发布。
 agent_created: true
-version: 1.0.2
+version: 1.0.3
 display_name: AI 宣传海报设计师
 display_name_en: Poster Designer
+description_zh: AI 宣传海报设计师。适用于产品、软件、活动和电商宣传海报的新建与修改，以及仅需设计方案或生图提示词的请求。整理用户文案、Logo、产品图与参考图，锁定关键事实，策划版式，按宿主能力生成和质检独立图片；能力不足时交付明确标注的方案或草稿。不用于 VI 系统设计、视频制作、多页宣传册、印刷生产管理或营销内容自动发布。
+description_en: AI poster designer for creating and revising promotional posters for products, software, events and e-commerce, and for requests that only need a design plan or image-generation prompt. Organizes user copy, logos, product shots and reference images, locks key facts, plans layouts, and generates plus quality-checks standalone images according to host capabilities; when capabilities fall short, delivers a clearly labeled plan or draft. Not for VI system design, video production, multi-page brochures, print production management or automated marketing publishing.
 author: icoolkj
 license: MIT
 metadata:
   homepage: https://icoolkj.com
-  email: icoolkj@163.com
+  repository: https://github.com/icoolkj/icoolkj-skills
+  contact: icoolkj@163.com
   qq: "594047667"
 ---
 
-# Poster Designer V1.0.2
+# Poster Designer V1.0.3
 
 把宣传资料转化为可检查、可修改、可追溯的海报交付。保持核心流程与平台适配分离，不绑定生成模型，不把工具调用成功当作海报验收通过。
 
@@ -107,6 +110,18 @@ metadata:
 - `references/composition.md`：确定性排版、品牌配置、素材与移动阅读预检时读取。
 - `assets/example-brand.json`、`assets/example-poster.json`：虚构排版样例；复制到任务目录并填写实际字体/内容，不修改分发样例、不混入客户数据。
 - `scripts/compose_poster.py`、`requirements.txt`：可选本地排版及依赖；输出独立 PNG、预览、布局报告和 draft 记录。
-- `scripts/validate_delivery.py`：标准库校验器，兼容旧版记录；V1.0.2 使用 schema v2，核对预检报告与最终文件哈希，不能代替视觉验收。
+- `scripts/validate_delivery.py`：标准库校验器，兼容旧版记录；当前版本使用 schema v2，核对预检报告与最终文件哈希，不能代替视觉验收。
 
-把基础格式检查、记录校验、模拟用例和真实平台验收分开报告。未实际执行的验收一律标为 `not_run`；V1.0.2 文件升级不代表已商业上线。商业发布要求见交付规范中的发布门槛。
+把基础格式检查、记录校验、模拟用例和真实平台验收分开报告。未实际执行的验收一律标为 `not_run`；文件升级不代表已商业上线。商业发布要求见交付规范中的发布门槛。
+
+## 关于
+
+| 项目 | 信息 |
+|------|------|
+| 出品 | icoolkj |
+| 官网 | https://icoolkj.com |
+| 邮箱 | icoolkj@163.com |
+| QQ | 594047667 |
+| 许可 | MIT License |
+
+Copyright © 2026 icoolkj.com
