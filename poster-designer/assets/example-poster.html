@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A4 信息单页模板 · poster-designer 示例</title>
+<style>
+  :root{
+    --paper:#F7F8F4;
+    --ink:#1B2733;
+    --muted:#5F6B76;
+    --blue:#0C447C;
+    --blue-deep:#042C53;
+    --blue-soft:#E6F1FB;
+    --teal:#0F6E56;
+    --line:#D7DCD6;
+    --white:#FFFFFF;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{background:#ECEEF0;}
+  body{
+    font-family:'Noto Sans CJK SC','Noto Sans SC','Microsoft YaHei','PingFang SC',sans-serif;
+    color:#1B2733;
+    display:flex;
+    justify-content:center;
+    padding:96px 20px 40px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .poster{
+    position:relative;
+    width:794px;
+    height:1123px;
+    background:#F7F8F4;
+    display:grid;
+    grid-template-columns:96px 1fr;
+    box-shadow:0 24px 60px rgba(12,68,124,0.12);
+    overflow:hidden;
+  }
+  .poster::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background-image:linear-gradient(rgba(12,68,124,0.035) 1px, transparent 1px),
+                     linear-gradient(90deg, rgba(12,68,124,0.035) 1px, transparent 1px);
+    background-size:26px 26px;
+    pointer-events:none;
+  }
+  .rail{
+    position:relative;
+    z-index:1;
+    background:#0C447C;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:space-between;
+    padding:40px 0 34px;
+  }
+  .rail-mark{
+    width:32px;height:32px;
+    border:1px solid rgba(255,255,255,0.45);
+    display:flex;align-items:center;justify-content:center;
+    color:#FFFFFF;font-size:9px;letter-spacing:0.08em;
+  }
+  .rail-title{
+    writing-mode:vertical-rl;
+    color:#FFFFFF;
+    font-size:10px;
+    font-weight:500;
+    letter-spacing:0.34em;
+    padding:16px 0;
+    border-top:1px solid rgba(255,255,255,0.22);
+    border-bottom:1px solid rgba(255,255,255,0.22);
+  }
+  .rail-note{
+    writing-mode:vertical-rl;
+    color:rgba(255,255,255,0.55);
+    font-size:9px;
+    letter-spacing:0.28em;
+  }
+  .rail-page{color:#FFFFFF;font-size:10px;font-weight:500;letter-spacing:0.16em;}
+  .body{
+    position:relative;
+    z-index:1;
+    height:100%;
+    padding:40px 50px 34px 42px;
+    display:flex;
+    flex-direction:column;
+  }
+  .head{display:flex;align-items:center;justify-content:space-between;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand svg{display:block;width:44px;height:44px;}
+  .brand-name{font-size:14px;font-weight:700;letter-spacing:0.04em;color:#0C447C;}
+  .brand-en{font-size:8.5px;font-weight:500;letter-spacing:0.18em;color:#6B7783;margin-top:4px;}
+  .tag{
+    border:1px solid rgba(12,68,124,0.55);
+    color:#0C447C;
+    font-size:10px;
+    font-weight:600;
+    letter-spacing:0.14em;
+    padding:6px 10px;
+  }
+  .kicker{
+    margin-top:30px;
+    display:flex;align-items:center;gap:10px;
+    color:#0F6E56;
+    font-size:10.5px;
+    font-weight:600;
+    letter-spacing:0.18em;
+  }
+  .kicker::before{content:"";width:26px;height:2px;background:#0F6E56;}
+  h1{
+    margin-top:12px;
+    font-size:42px;
+    font-weight:800;
+    line-height:1.22;
+    letter-spacing:-0.5px;
+    color:#042C53;
+  }
+  .subtitle{
+    margin-top:12px;
+    font-size:15px;
+    font-weight:500;
+    line-height:1.65;
+    color:#34424F;
+    max-width:520px;
+  }
+  .lead{
+    margin-top:14px;
+    font-family:'Noto Serif CJK SC','Songti SC','SimSun',serif;
+    font-size:13px;
+    line-height:1.9;
+    color:#43505C;
+    max-width:560px;
+  }
+  .stats{
+    margin-top:22px;
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    border-top:2px solid #042C53;
+    border-bottom:1px solid #D7DCD6;
+  }
+  .stat{padding:12px 0 12px 14px;border-left:1px solid #D7DCD6;}
+  .stat:first-child{border-left:none;padding-left:0;}
+  .stat-num{font-size:21px;font-weight:800;line-height:1;color:#0C447C;letter-spacing:-0.02em;}
+  .stat-label{margin-top:7px;font-size:10px;font-weight:500;color:#5F6B76;letter-spacing:0.05em;}
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;margin-top:22px;}
+  .section-head h2{font-size:14.5px;font-weight:700;color:#042C53;}
+  .section-head .note{font-size:9.5px;font-weight:600;color:#0F6E56;letter-spacing:0.1em;}
+  .fields{margin-top:4px;}
+  .field{
+    display:grid;
+    grid-template-columns:26px 130px 1fr;
+    gap:12px;
+    padding:10px 0;
+    border-bottom:1px solid #D7DCD6;
+    align-items:start;
+  }
+  .field-no{font-size:10px;font-weight:700;color:#0C447C;line-height:1.9;}
+  .field-name{font-size:13px;font-weight:700;color:#1B2733;line-height:1.6;}
+  .field-desc{font-family:'Noto Serif CJK SC','Songti SC','SimSun',serif;font-size:11.5px;line-height:1.7;color:#5A6672;}
+  .flow-head{margin-top:20px;font-size:10.5px;font-weight:600;color:#5F6B76;letter-spacing:0.16em;}
+  .flow{margin-top:10px;display:flex;list-style:none;}
+  .flow li{flex:1;padding-right:10px;}
+  .flow li::before{content:"";display:block;height:2px;background:#B5D4F4;margin-bottom:9px;}
+  .flow li:first-child::before{background:#0C447C;}
+  .flow-no{font-size:9.5px;font-weight:700;color:#0C447C;letter-spacing:0.06em;}
+  .flow-name{margin-top:3px;font-size:12px;font-weight:700;color:#1B2733;}
+  .flow-desc{margin-top:2px;font-size:10px;line-height:1.55;color:#6B7783;}
+  .notice{
+    margin-top:18px;
+    background:#E6F1FB;
+    border-left:4px solid #0C447C;
+    padding:13px 15px;
+  }
+  .notice-title{font-size:10.5px;font-weight:700;color:#0C447C;letter-spacing:0.1em;}
+  .notice-text{margin-top:6px;font-size:11px;line-height:1.7;color:#4E6070;}
+  .foot{
+    margin-top:auto;
+    padding-top:13px;
+    border-top:1px solid #D7DCD6;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .foot-left{display:flex;align-items:center;gap:9px;}
+  .foot-left svg{width:22px;height:22px;display:block;}
+  .foot-name{font-size:10.5px;font-weight:700;color:#0C447C;letter-spacing:0.04em;}
+  .foot-desc{font-size:9px;color:#6B7783;margin-top:2px;}
+  .foot-right{text-align:right;font-size:9px;color:#6B7783;letter-spacing:0.12em;line-height:1.6;}
+  .export-btn{
+    position:fixed;
+    top:16px;
+    right:16px;
+    z-index:99;
+    border:none;
+    background:#0C447C;
+    color:#FFFFFF;
+    font-family:'Noto Sans CJK SC','Noto Sans SC','Microsoft YaHei',sans-serif;
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:0.08em;
+    padding:13px 22px;
+    cursor:pointer;
+    box-shadow:0 10px 24px rgba(4,44,83,0.28);
+    transition:transform .2s ease, background-color .2s ease;
+  }
+  .export-btn:hover{background:#0F6E56;}
+  .export-btn:active{transform:translateY(1px) scale(0.98);}
+  .export-btn:disabled{background:#6B7783;cursor:wait;}
+  @media print{
+    @page{size:A4;margin:0;}
+    html,body{background:#FFFFFF;}
+    body{padding:0;}
+    .poster{box-shadow:none;}
+    .export-btn{display:none;}
+  }
+</style>
+</head>
+<body>
+<main class="poster" data-canvas="794x1123">
+  <aside class="rail">
+    <div class="rail-mark">A4</div>
+    <div class="rail-title">ONE-PAGER TEMPLATE</div>
+    <div class="rail-note">DETERMINISTIC LAYOUT</div>
+    <div class="rail-page">01</div>
+  </aside>
+
+  <section class="body">
+    <header class="head">
+      <div class="brand">
+        <svg viewBox="0 0 64 64" role="img" aria-label="示例标记">
+          <rect x="4" y="4" width="56" height="56" rx="10" fill="#0C447C"/>
+          <path d="M20 38h24M32 20v12" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="32" cy="45" r="3" fill="#9FE1CB"/>
+        </svg>
+        <div>
+          <div class="brand-name">Poster Designer 示例</div>
+          <div class="brand-en">A4 ONE-PAGER TEMPLATE</div>
+        </div>
+      </div>
+      <div class="tag">模板示例</div>
+    </header>
+
+    <div class="kicker">FIXED CANVAS · DETERMINISTIC LAYOUT</div>
+    <h1>A4 信息单页<br>模板骨架</h1>
+    <p class="subtitle">固定画布、字段表、流程条与导出按钮的最小可运行示例。</p>
+    <p class="lead">复制本文件到任务目录，替换品牌、配色和全部文案；按 html-poster-path.md 检查画布、Logo 倍率与导出尺寸。本页品牌与内容均为虚构示例，不用于客户交付。</p>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-num">794×1123</div>
+        <div class="stat-label">A4 画布 px</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">3×</div>
+        <div class="stat-label">默认导出倍率</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">12–14px</div>
+        <div class="stat-label">正文区间</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">1</div>
+        <div class="stat-label">主色 + 1 强调色</div>
+      </div>
+    </div>
+
+    <div class="section-head">
+      <h2>模板包含的四个区块</h2>
+      <div class="note">可替换文案</div>
+    </div>
+    <div class="fields">
+      <div class="field">
+        <div class="field-no">01</div>
+        <div class="field-name">固定画布</div>
+        <div class="field-desc">data-canvas 声明 A4，.poster 固定宽高并显式设置背景，不依赖父级。</div>
+      </div>
+      <div class="field">
+        <div class="field-no">02</div>
+        <div class="field-name">字段表</div>
+        <div class="field-desc">编号 + 名称 + 来源说明；一行只放一条有来源的事实，说明不超过两行。</div>
+      </div>
+      <div class="field">
+        <div class="field-no">03</div>
+        <div class="field-name">流程条</div>
+        <div class="field-desc">三到五步单向连接，顺序来自用户资料；不凭视觉猜步骤，不放伪截图。</div>
+      </div>
+      <div class="field">
+        <div class="field-no">04</div>
+        <div class="field-name">导出按钮</div>
+        <div class="field-desc">html-to-image 3×，等待字体后截取 .poster；按钮固定在画布外，不遮挡版心。</div>
+      </div>
+    </div>
+
+    <div class="flow-head">使用顺序</div>
+    <ol class="flow">
+      <li>
+        <div class="flow-no">STEP 01</div>
+        <div class="flow-name">复制模板</div>
+        <div class="flow-desc">放入新任务目录</div>
+      </li>
+      <li>
+        <div class="flow-no">STEP 02</div>
+        <div class="flow-name">替换文案</div>
+        <div class="flow-desc">逐条对应必保留清单</div>
+      </li>
+      <li>
+        <div class="flow-no">STEP 03</div>
+        <div class="flow-name">内嵌 Logo</div>
+        <div class="flow-desc">原图转 data URI</div>
+      </li>
+      <li>
+        <div class="flow-no">STEP 04</div>
+        <div class="flow-name">运行检查</div>
+        <div class="flow-desc">越界、字体、禁用 CSS</div>
+      </li>
+      <li>
+        <div class="flow-no">STEP 05</div>
+        <div class="flow-name">导出实测</div>
+        <div class="flow-desc">点击按钮并量尺寸</div>
+      </li>
+    </ol>
+
+    <div class="notice">
+      <div class="notice-title">使用边界</div>
+      <div class="notice-text">本模板只演示版式与导出，不包含客户事实。机器检查通过仍记为 draft，需按 quality-checklist.md 实际看图核对中文、事实与可读性。</div>
+    </div>
+
+    <footer class="foot">
+      <div class="foot-left">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <rect x="4" y="4" width="56" height="56" rx="10" fill="#0C447C"/>
+          <path d="M20 38h24M32 20v12" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        <div>
+          <div class="foot-name">poster-designer 示例</div>
+          <div class="foot-desc">虚构模板 · 非客户项目</div>
+        </div>
+      </div>
+      <div class="foot-right">A4 信息单页<br>01 / 01</div>
+    </footer>
+  </section>
+</main>
+
+<button class="export-btn" id="exportBtn" type="button">导出为 PNG</button>
+
+<script>
+  (function () {
+    function loadLib() {
+      if (window.htmlToImage) return Promise.resolve();
+      var urls = [
+        'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js',
+        'https://unpkg.com/html-to-image@1.11.11/dist/html-to-image.js'
+      ];
+      return urls.reduce(function (p, url) {
+        return p.catch(function () {
+          return new Promise(function (resolve, reject) {
+            var s = document.createElement('script');
+            s.src = url;
+            s.onload = function () { window.htmlToImage ? resolve() : reject(new Error('unavailable')); };
+            s.onerror = function () { reject(new Error('unavailable')); };
+            document.head.appendChild(s);
+          });
+        });
+      }, Promise.reject());
+    }
+    var btn = document.getElementById('exportBtn');
+    btn.addEventListener('click', function () {
+      var original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '正在导出…';
+      loadLib()
+        .then(function () {
+          return document.fonts && document.fonts.ready ? document.fonts.ready : null;
+        })
+        .then(function () { return new Promise(function (r) { setTimeout(r, 200); }); })
+        .then(function () {
+          return window.htmlToImage.toPng(document.querySelector('.poster'), {
+            pixelRatio: 3,
+            cacheBust: true,
+            backgroundColor: '#ffffff'
+          });
+        })
+        .then(function (dataUrl) {
+          var a = document.createElement('a');
+          a.download = 'poster-01-v001.png';
+          a.href = dataUrl;
+          a.click();
+        })
+        .catch(function (err) {
+          alert('导出失败：' + err.message + '\n请检查网络或改用浏览器打印为 PDF。');
+        })
+        .then(function () {
+          btn.disabled = false;
+          btn.textContent = original;
+        });
+    });
+  })();
+</script>
+</body>
+</html>

@@ -32,7 +32,9 @@
 
 图片记录新增 `production`：
 
-- `method`：generated（整图生成）、edited（图像编辑）或 deterministic（本地组件确定性排版）。记录实际制作路径，不为了避开检查更换名称。
+- `method`：generated（整图生成）、edited（图像编辑）、deterministic（本地 Pillow 组件确定性排版）或 html_render（HTML/浏览器确定性排版）。记录实际制作路径，不为了避开检查更换名称。
+- html_render 建议填写 `direction`（如 `D2-卷宗`），并在与上一版对比时记录 `similarity` 与 `verdict`（见 `references/direction-playbook.md`）。未填写视为缺少方向记录：不阻断记录校验，但不得声称已做防重复检查。
+- html_render 必填 `recipe`（实际 HTML 路径，相对 delivery.json）和 `layout_report`（`scripts/check_html_poster.py` 生成的报告）；可选 `brand_id`，没有品牌配置时不虚构。报告须含 `reproducibility.config.sha256`（与 HTML 哈希一致）、`artifact`（location、sha256、width、height、format）、`checks.layout` 与 `checks.html_export`，两者均须有 evidence；提供 `preview` 时核对哈希与等比尺寸。改 HTML 或重新导出后必须重新生成报告。
 - deterministic 必填 `brand_id`、`recipe`（实际配方路径，相对 delivery.json）和 `layout_report`（相对 delivery.json 的报告路径）；该校验路径要求本地可读文件。校验配方和其引用的品牌 JSON 存在，并与报告 `reproducibility.config.sha256` / `reproducibility.brand.sha256` 一致；调整配方后重新生成，不能沿用旧证据。宿主其他排版能力可用 edited 并写清具体过程，不能假称运行了随包组件。
 - 报告包含 `schema_version: 1`、`brand_id`、`artifact`（location、sha256、width、height、format）、`preview`（location、sha256、width、height）、`checks`（layout/readability/assets 的 status/evidence）。图片与报告哈希、尺寸、品牌及实际预览需匹配；预览哈希和等比缩小尺寸也须一致（高度允许整数舍入），layout 必须 pass。
 - 预检 readability/assets 为 fail 时不能宣称该项 pass；先改版再生成报告。为 unverified 时可经真实人工检查补 `production.review_overrides.<检查ID> = {evidence, artifact_sha256}`，记录具体结论并绑定同一张图片。此记录只保存证据，不自动完成检查，不能用于掩盖 fail。
@@ -53,7 +55,7 @@ python scripts/validate_delivery.py <delivery.json>
 
 ## 4. 商业发布门槛
 
-V1.0.2 增加可选排版组件与预检，不因静态校验或虚构样例排版自动成为商业正式版。真实生图、跨平台、客户样例与商用范围仍按下列门槛验收。
+V1.2.0 增加 HTML 出图路径与导出实测，仍不因静态校验或虚构样例排版自动成为商业正式版。版式组件与浏览器导出都只产出扁平图，不能证明可编辑源文件或印刷就绪。真实生图、跨平台、客户样例与商用范围仍按下列门槛验收。
 
 1. 执行 `evaluation/acceptance.json` 全部适用用例，记录输入、宿主/模型及版本、日期、工具调用记录、费用（未知则明示）、实际图片和检查证据。未跑用例保持 not_run。
 2. 至少一个真实可生图宿主完成输入→生成→查看→独立交付；真实无生图能力环境验证降级。欲宣传多个平台已支持，需分别执行其适用用例；模拟不算真实跨平台验收。

@@ -17,8 +17,10 @@
 | qr | 要求二维码时核对目标与实际解码结果、静区和清晰度；无法解码验证则未验证。 |
 | rights | 用户存在明确素材使用限制或授权疑点时核实对应使用范围。工具/字体许可需有实际依据；无问题时可不适用，不等同法律保证。 |
 | print | 印刷用途核对用户/印厂指定物理尺寸、出血、分辨率与颜色/文件要求。缺少要求或能力时未验证，只能交数字版或草稿。 |
+| direction | 与上一版导出图对比版式重复度；`reuse` 必须换方向，`related` 需确认同系列意图，证据写 similarity 与 verdict。无基线时标 unverified，不得声称已做防重复检查。 |
+| html_export | `html_render` 路径必查：实际点击导出并确认文件生成；宽高 = 画布 × 倍率；按钮在海报外且不遮挡版心；页面无滚动；字体已加载；无 `background-clip: text`、`backdrop-filter`、`mix-blend-mode` 等导出不兼容属性。证据写导出文件名与实测尺寸，不能只写“脚本存在”。 | |
 
-V1.0.2 图片检查必含 content、visual、dimensions、access、readability、assets；其他项目根据任务适用，不能为通过而改为不适用。无 Logo 不等于无品牌约束。品牌系列对照同一版本的品牌配色、字体和页脚规则。
+图片检查必含 content、visual、dimensions、access、readability、assets；其他项目根据任务适用，不能为通过而改为不适用。无 Logo 不等于无品牌约束。品牌系列对照同一版本的品牌配色、字体和页脚规则。`html_export` 只在 `html_render` 路径适用，证据记入布局报告，不加入 `delivery.json` 的固定检查集；未实测导出时该图最高只能为 `draft`。
 
 确定性排版时将布局报告绑定到最终图片 SHA-256；改图后必须重新出报告。手机字号预检 fail 需实际修改版式解决；素材放大/zoom 阅读造成的 unverified 可在真实人工检查后补充证据，不得仅改状态。布局通过不代表中文无错字、事实准确或商用许可通过。
 

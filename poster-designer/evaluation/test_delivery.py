@@ -285,7 +285,7 @@ class ContractTests(unittest.TestCase):
 
     def test_cases_are_not_claimed_as_passed(self):
         cases = json.loads((Path(__file__).parent / "acceptance.json").read_text(encoding="utf-8"))["cases"]
-        self.assertEqual(len({c["id"] for c in cases}), 26)
+        self.assertEqual(len({c["id"] for c in cases}), len(cases))
         self.assertTrue(all(c["status"] == "not_run" for c in cases))
 
 

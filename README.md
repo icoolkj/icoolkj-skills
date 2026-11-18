@@ -16,6 +16,7 @@ icoolkj AI Agent 标准化技能库，沉淀可直接给大模型调用的工具
 | `data-report-creator` | 1.2.1 | 数据分析报告生成工具：人工配置 report.json + CLI 流水线导出 | report.json、CLI 生成报告、手工调章节 |
 | `security-scanner` | 1.1.2 | 本地静态风险扫描：快速/标准/深度三档扫描，四类结果分级；不删除、不隔离文件 | 扫描文件、检查可疑脚本、扫描U盘 |
 | `md-word-dual` | 1.1.0 | 双层文档：Markdown 转正规 Word，同时把原文藏进同一个 docx，可逐字节取回；四套排版预设 | markdown 转 word、word 转 markdown、双层文档、正式公文 word、给业务方交付 word |
+| `poster-designer` | 1.3.0 | 宣传海报与 A4 单页：必保留清单、设计方向与防重复、HTML 出图、导出实测 | 做海报、宣传单页、A4 单页、海报改图、海报方案、生图提示词、导出 PNG |
 
 已归档：`md-doc-bridge`（第一版双层文档实现）已移到 `archive/`，由 `md-word-dual` 取代，原因见 `archive/README.md`。
 
