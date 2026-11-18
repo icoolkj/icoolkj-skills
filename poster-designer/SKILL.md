@@ -6,7 +6,7 @@ description: |
   主视觉＋确定性排版、原图编辑或方案降级，并逐张核对文字、尺寸与素材。
   触发词：做海报、宣传图、产品海报、活动海报、电商主图、海报改图、海报方案、生图提示词、poster design、poster prompt。
 agent_created: true
-version: 1.1.2
+version: 1.1.3
 display_name: AI 宣传海报设计师
 display_name_en: Poster Designer
 description_zh: |
@@ -22,11 +22,6 @@ description_en: |
   copy, dimensions and assets image by image.
 author: icoolkj
 license: MIT
-metadata:
-  homepage: https://icoolkj.com
-  repository: https://github.com/icoolkj/icoolkj-skills
-  contact: icoolkj@163.com
-  qq: "594047667"
 allowed-tools: Bash(python:*)
 ---
 
@@ -177,9 +172,6 @@ Python 3.9+。`scripts/validate_delivery.py` 仅用标准库。
 | 项目 | 信息 |
 |------|------|
 | 出品 | icoolkj |
-| 官网 | https://icoolkj.com |
-| 邮箱 | icoolkj@163.com |
-| QQ | 594047667 |
 | 许可 | MIT License |
 
-Copyright © 2026 icoolkj.com
+Copyright © 2026 icoolkj

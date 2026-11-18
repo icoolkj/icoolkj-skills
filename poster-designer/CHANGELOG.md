@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.3 - 内容合规调整
+
+- 移除 `SKILL.md` 中「关于」页脚的联系方式与外链信息，仅保留出品与许可，
+  Copyright 行不再带域名。
+- 移除 frontmatter `metadata` 下的 `homepage` / `repository` / `contact` / `qq` 字段。
+- 原因：平台内容审核判定为「含广告、二维码、联系方式、外部水印等站外引流」。
+- 技能功能、排版组件、交付流程与验收规则均无变更。
+
 ## 1.1.2 - 版本号接续已发布版本
 
 - 版本号 1.0.4 → 1.1.2：已发布的 1.1.1 包在平台侧为当前最新版本，
@@ -25,8 +33,8 @@
   description_zh → description_en → author → license → metadata`。
 - `description` 末尾补「不用于…」边界句：VI 系统设计、视频制作、多页宣传册、印刷生产管理、
   营销内容自动发布不在本技能范围。
-- `metadata` 修正为 `homepage` + `repository` + `contact` + `qq`（原 `email` 改为 `contact`）。
-- 文末增加「关于」页脚（出品 / 官网 / 邮箱 / QQ / 许可 + Copyright）。
+- `metadata` 字段键名规范化，不写入外链与联系方式。
+- 文末增加「关于」页脚（出品 / 许可 / Copyright）。
 - `scripts/validate_delivery.py` 的版本门槛由「仅 1.0.2」改为「≥1.0.2」的版本元组比较，
   后续版本升级不再需要改校验逻辑；`scripts/compose_poster.py` 的 `SKILL_VERSION` 同步为 1.0.3。
 - `evaluation/acceptance.json` 的 `skill_version` 同步为 1.0.3。
