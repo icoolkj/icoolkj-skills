@@ -9,7 +9,7 @@ import re
 import sys
 from pathlib import Path
 
-SKILL_VERSION = "1.3.0"
+SKILL_VERSION = "1.1.2"
 CHECKS = {"content", "visual", "dimensions", "access", "brand", "edit_scope", "qr", "rights", "print", "readability", "assets"}
 APPLICABLE = {"content", "visual", "dimensions", "access", "brand", "readability", "assets"}
 

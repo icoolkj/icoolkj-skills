@@ -1,5 +1,5 @@
 {
-  "skill_version": "1.3.0",
+  "skill_version": "1.1.2",
   "purpose": "真实行为验收用例；默认未执行，不以静态或模拟测试冒充生图验收。",
   "cases": [
     {"id":"T01","status":"not_run","input":"为星禾台灯做一张宣传图：可调亮度、USB供电。","expect":["仅用两个有来源卖点","独立图片","无虚构价格和认证"]},
@@ -27,14 +27,6 @@
     {"id":"T23","status":"not_run","fixture":"输入资料、字段匹配、输出结果三个已确认步骤","input":"画软件处理流程，注明示意。","expect":["确定性排字","步骤顺序清楚","不伪造可读软件截图或新增产品功能"]},
     {"id":"T24","status":"not_run","environment":"无Pillow/fontTools或无指定字体","input":"运行本地排版。","expect":["明确缺失依赖或字体","不自动联网安装","可使用宿主等价能力或降级","不生成假路径"]},
     {"id":"T25","status":"not_run","fixture":"已存在输出目录和原素材","input":"修改标题，其他部分保持。","expect":["拒绝覆盖旧目录","原素材哈希不变","新版本重新检查换行和非目标区域"]},
-    {"id":"T26","status":"not_run","fixture":"旧布局报告对应图片被替换或预览丢失","input":"交付检查通过的图片。","expect":["哈希或预览检查失败","不得沿用旧报告宣称ready","重新生成对应报告并看图"]},
-    {"id":"T27","status":"not_run","input":"把两段功能介绍做成两份 A4 宣传单页，Logo 用我给的 64×64 图。","expect":["识别 A4 而非默认 3:4","794×1123 画布 3× 导出","两份共享边距/页脚/编号","Logo 内嵌并记录倍率","导出实测宽高"]},
-    {"id":"T28","status":"not_run","environment":"宿主有浏览器/HTML 渲染能力、无生图能力","input":"用 HTML 做一张 A4 单页并导出 PNG。","expect":["method 记 html_render","实际点击导出并测量尺寸","无元素越界与页面滚动","未实测导出时最高 draft"]},
-    {"id":"T29","status":"not_run","fixture":"含 background-clip:text、未定义 var、远程 img 的 HTML","input":"检查并交付这张 HTML 海报。","expect":["禁用 CSS 报 fail","未定义变量报 fail","远程图片提示导出风险","不因脚本存在而宣称 ready"]},
-    {"id":"T30","status":"not_run","fixture":"html_render 的 delivery.json 与布局报告","input":"校验交付记录。","expect":["HTML 与导出图哈希匹配才通过","html_export 未 pass 时不能 ready","改 HTML 后旧报告失效"]},
-    {"id":"T31","status":"not_run","input":"同一客户已有上一版单页，再做一版。","expect":["先写方向卡","不沿用上一版版式骨架+主色+标题字体三项","记录 production.direction","不把改色当新方向"]},
-    {"id":"T32","status":"not_run","fixture":"与上一版仅换色的 HTML","input":"导出后与上一版做 --compare。","expect":["判定 reuse 或 related","reuse 时退出码 2 并阻断","换方向后复测 distinct","不得用 --allow-reuse 掩盖重复"]},
-    {"id":"T33","status":"not_run","fixture":"64×64 透明背景 Logo，计划深色底显示 90px","input":"运行 analyze_logo.py。","expect":["识别透明背景与主色","报告放大倍率 1.4x","深色底建议白底容器","超过 1.5x 时退出码 1"]},
-    {"id":"T34","status":"not_run","fixture":"首选宋体未安装、系统回退到默认衬线","input":"--render 检查字体。","expect":["读取实际字体而非只匹配字体栈","首选字体缺失标 fail","说明回退后果"]}
+    {"id":"T26","status":"not_run","fixture":"旧布局报告对应图片被替换或预览丢失","input":"交付检查通过的图片。","expect":["哈希或预览检查失败","不得沿用旧报告宣称ready","重新生成对应报告并看图"]}
   ]
 }

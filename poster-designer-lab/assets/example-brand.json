@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "id": "demo-light-v1",
+  "note": "公开虚构技术演示，无客户品牌或真实 Logo。不可直接运行：请先将 fonts 中的占位路径改成有权使用且覆盖全部中文的实际字体路径；路径相对此 JSON。",
+  "colors": {
+    "background": "#F4F7FB",
+    "surface": "#FFFFFF",
+    "ink": "#11263A",
+    "muted": "#41566B",
+    "accent": "#1769B4"
+  },
+  "fonts": {
+    "title": {"path": "CONFIGURE-YOUR-FONT.ttf", "index": 0},
+    "body": {"path": "CONFIGURE-YOUR-FONT.ttf", "index": 0}
+  }
+}

@@ -3,9 +3,9 @@
 ## Unreleased
 
 ### Added
-- `poster-designer` 升级到 1.3.0：新增设计方向手册（D1–D4）、`--compare` 版式重复检测、
-  `analyze_logo.py` Logo 分析与实际字体加载校验；1.2.0 的 HTML 出图路径、A4 单页规范、
-  导出实测与 `html_render` 交付记录一并纳入。
+- 新增 `poster-designer-lab` 1.3.0（实验版）：设计方向手册（D1–D4）、`--compare` 版式重复检测、
+  `analyze_logo.py` Logo 分析、实际字体加载校验、HTML 固定画布出图与 A4 单页规范。
+- 原 `poster-designer` 恢复并保持 1.1.2，源码与 `scripts/` 不混入实验版；两个版本并存。
 
 ### Fixed
 - 将 `md-word-dual` 纳入默认安全审计技能列表。

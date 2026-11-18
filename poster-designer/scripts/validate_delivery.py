@@ -71,90 +71,11 @@ def image_info(path):
     raise ValueError("unsupported or invalid image header (PNG/JPEG/GIF required)")
 
 
-def check_html_production(item, base, checks):
-    """Bind HTML layout/export evidence to the actual PNG; no visual approval."""
-    production = item["production"]
-    errors = []
-    if not text(production.get("recipe")):
-        return ["html_render production requires recipe"]
-    if not text(production.get("layout_report")):
-        return ["html_render production requires layout_report"]
-    artifact = item.get("artifact", {})
-    if artifact.get("kind") != "local":
-        return ["html_render evidence requires local artifact"]
-    brand_id = production.get("brand_id")
-    if brand_id is not None and not text(brand_id):
-        errors.append("html_render brand_id must be non-empty when present")
-    direction = production.get("direction")
-    if direction is not None and not text(direction):
-        errors.append("html_render direction must be non-empty when present")
-    try:
-        recipe_path = (base / production["recipe"]).resolve()
-        if recipe_path.suffix.lower() not in (".html", ".htm"):
-            errors.append("html_render recipe must be an HTML file")
-        recipe_bytes = recipe_path.read_bytes()
-        report_path = (base / production["layout_report"]).resolve()
-        report = json.loads(report_path.read_text(encoding="utf-8-sig"))
-        if not isinstance(report, dict) or report.get("schema_version") != 1:
-            return errors + ["invalid layout report schema"]
-        if report.get("method") not in (None, "html_render"):
-            errors.append("layout report method mismatch")
-        provenance = report.get("reproducibility", {}).get("config", {})
-        if provenance.get("sha256") != hashlib.sha256(recipe_bytes).hexdigest():
-            errors.append("layout report recipe hash mismatch")
-        if text(brand_id) and report.get("brand_id") not in (None, brand_id):
-            errors.append("layout report brand mismatch")
-        actual_path = (base / artifact["location"]).resolve()
-        digest = hashlib.sha256(actual_path.read_bytes()).hexdigest()
-        meta = report.get("artifact")
-        if not isinstance(meta, dict) or meta.get("sha256") != digest:
-            errors.append("layout report artifact hash mismatch")
-        else:
-            if not text(meta.get("location")) or (report_path.parent / meta["location"]).resolve() != actual_path:
-                errors.append("layout report artifact location mismatch")
-            actual = item.get("actual", {})
-            if any(meta.get(k) != actual.get(k) for k in ("width", "height", "format")):
-                errors.append("layout report metadata mismatch")
-        preflight = report.get("checks", {})
-        if not isinstance(preflight, dict):
-            return errors + ["layout report checks required"]
-        layout = preflight.get("layout", {})
-        if not isinstance(layout, dict) or layout.get("status") != "pass" or not text(layout.get("evidence")):
-            errors.append("html layout preflight must pass before image delivery")
-        export = preflight.get("html_export", {})
-        if not isinstance(export, dict) or not text(export.get("evidence")):
-            errors.append("html_export evidence required")
-        elif export.get("status") != "pass":
-            if item.get("status") == "ready":
-                errors.append("html_export must pass before ready")
-        preview = report.get("preview")
-        if preview is not None:
-            if not isinstance(preview, dict) or not text(preview.get("location")):
-                errors.append("invalid layout preview entry")
-            else:
-                preview_path = (report_path.parent / preview["location"]).resolve()
-                w, h, fmt = image_info(preview_path)
-                if w != preview.get("width") or h != preview.get("height") or fmt != "PNG":
-                    errors.append("layout preview metadata mismatch")
-                if preview.get("sha256") != hashlib.sha256(preview_path.read_bytes()).hexdigest():
-                    errors.append("layout preview hash mismatch")
-                actual = item.get("actual", {})
-                if (positive(actual.get("width")) and positive(actual.get("height"))
-                        and (w > actual["width"] or h != max(1, round(actual["height"] * w / actual["width"])))):
-                    errors.append("layout preview ratio/size mismatch")
-        return errors
-    except (OSError, ValueError, TypeError, KeyError, AttributeError, struct.error) as exc:
-        return errors + ["layout report: " + str(exc)]
-
-
 def check_production(item, base, checks):
     """Bind deterministic preflight evidence to the actual output; no visual approval."""
     production = item.get("production")
-    methods = ("generated", "edited", "deterministic", "html_render")
-    if not isinstance(production, dict) or production.get("method") not in methods:
-        return ["production.method must be generated/edited/deterministic/html_render"]
-    if production["method"] == "html_render":
-        return check_html_production(item, base, checks)
+    if not isinstance(production, dict) or production.get("method") not in ("generated", "edited", "deterministic"):
+        return ["production.method must be generated/edited/deterministic"]
     if production["method"] != "deterministic":
         return []
     errors = []

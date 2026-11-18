@@ -1,46 +1,5 @@
 # Changelog
 
-## 1.3.0 - 设计方向与防重复
-
-- 新增 `references/direction-playbook.md`：D1 现代工具 / D2 档案卷宗 / D3 技术白皮书 /
-  D4 品牌海报四个方向、选择规则、方向卡、防重复红线与阈值；同一客户第二次交付至少替换
-  版式骨架、主色、标题字体中的两项。
-- `scripts/check_html_poster.py` 新增 `--compare <上一版.png>`：比较主色直方图、行密度、
-  暗色行分布和边缘密度，输出 `similarity` 与 `distinct/related/reuse`；`reuse` 退出码 2，
-  除非人工 `--allow-reuse`。新增 `--compare-report`，并把结论写入 `layout-report` 的
-  `checks.direction`。
-- `--render` 现在读取实际 computed font-family 与 `document.fonts.check()`，首选字体未加载时
-  `render_font_actual` 判 fail，不再只匹配字体栈字符串；浏览器探测支持
-  `PLAYWRIGHT_CHROMIUM_EXECUTABLE` 与常见安装目录，去掉固定机器路径。
-- 新增 `scripts/analyze_logo.py`：输出 Logo 尺寸、透明背景比例、主色、计划显示倍率与
-  安全尺寸，深色底透明 Logo 给出白底容器建议，放大超过 1.5× 时退出码 1。
-- `SKILL.md` Phase 2 增加方向选择与防重复要求；交付契约支持 `production.direction`；
-  质检清单新增 `direction` 项；HTML 路径补充 `--compare` 用法。
-- 新增 `evaluation/test_direction.py` 回归对比度与 Logo 分析；`acceptance.json` 增加
-  T31–T34；版本 1.3.0 同步到 `compose_poster.py`、`analyze_logo.py` 与验收文件。
-
-## 1.2.0 - HTML 出图路径与 A4 宣传单页
-
-- 新增 `references/html-poster-path.md`：A4/A3/社交画布尺寸、安全边距、信息单页结构、
-  Logo 取色与内嵌、HTML 契约、html-to-image 导出契约、导出兼容黑名单、自检与状态。
-- 新增 `scripts/check_html_poster.py`：标准库静态检查画布、导出按钮、导出库、倍率、字体等待、
-  禁用 CSS、CSS 变量、占位符、中文字体栈与图片内嵌；可选 `--render/--export` 用 Playwright
-  实测元素越界、页面滚动、按钮遮挡、字体状态并点击导出，生成 `layout-report.json`。
-- 新增 `assets/example-poster.html`：794×1123 A4 单页可运行骨架，含导出按钮与兼容写法，
-  内容为虚构模板说明，可直接复制改写。
-- `SKILL.md` 新增第 11 条原则「出图即验」，执行路径表与决策表加入 HTML 确定性排版，
-  触发词补宣传单页/A4 单页/HTML 海报/导出 PNG；目标尺寸不再把 3:4 套在 A4 上。
-- `references/design-knowledge.md` 新增 A4/A3 尺寸、E/F 两型信息单页版式、档案/政务与
-  软件工具配色，以及第 7 节成套系列规则。
-- `references/composition.md`、`platform-adapter.md`、`quality-checklist.md`、
-  `prompt-crafting.md` 补 HTML 路径分流、能力核实、`html_export` 检查与设计说明写法。
-- `references/delivery-contract.md` 支持 `production.method = html_render`：校验 HTML 哈希、
-  导出图哈希/尺寸、`layout` 与 `html_export` 证据；未实测导出不得 `ready`。
-- `scripts/validate_delivery.py` 增加 html_render 校验分支，旧 deterministic/generated/edited
-  记录行为不变；`scripts/compose_poster.py` 版本号同步 1.2.0。
-- `evaluation/acceptance.json` 增加 T27–T30（A4 单页、HTML 导出、禁用 CSS、记录校验）；
-  新增 `evaluation/test_html_path.py` 回归静态检查、哈希失效与 ready 门槛（共 8 个用例）。
-
 ## 1.1.2 - 版本号接续已发布版本
 
 - 版本号 1.0.4 → 1.1.2：已发布的 1.1.1 包在平台侧为当前最新版本，
