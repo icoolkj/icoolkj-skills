@@ -1,23 +1,26 @@
 ---
 name: security-scanner
 description: |
-  本地静态风险扫描工具。扫描用户电脑目录中的文件、文件夹或磁盘，检测潜在恶意文件和可疑脚本。
+  本地静态风险扫描工具。扫描用户电脑目录中的文件、文件夹或磁盘，识别潜在风险文件和异常脚本。
   支持快速/标准/深度三种扫描策略，按 EXE/DLL/MSI/JS/PS1 等文件类型过滤，实时显示扫描进度，
-  生成未检出/可疑/恶意/未能检查四类分类报告，并标注检测覆盖情况。
-  触发词：扫描文件、检查可疑脚本、扫描目录、扫描U盘、检查EXE、安全扫描、malware scan、virus scan。
+  生成未检出/可疑/高风险/未能检查四类分类报告，并标注检测覆盖情况。
+  仅做只读静态特征分析，不执行、不清除任何文件，不作为专业安全软件的替代。
+  触发词：扫描文件、检查异常脚本、扫描目录、扫描U盘、检查EXE、文件风险排查、静态分析。
 agent_created: true
 version: 1.1.2
 display_name: 本地静态风险扫描
 display_name_en: Security Scanner
 description_zh: |
-  本地静态风险扫描工具。扫描用户电脑目录中的文件、文件夹或磁盘，检测潜在恶意文件和可疑脚本。
+  本地静态风险扫描工具。扫描用户电脑目录中的文件、文件夹或磁盘，识别潜在风险文件和异常脚本。
   支持快速/标准/深度三种扫描策略，按 EXE/DLL/MSI/JS/PS1 等文件类型过滤，实时显示扫描进度，
-  生成未检出/可疑/恶意/未能检查四类分类报告，并标注检测覆盖情况。
+  生成未检出/可疑/高风险/未能检查四类分类报告，并标注检测覆盖情况。
+  仅做只读静态特征分析，不执行、不清除任何文件，不作为专业安全软件的替代。
 description_en: |
-  A local file security scanning tool. Scans files, folders or disks on the user machine to detect
-  potential malware and suspicious scripts. Supports quick, standard and deep scanning strategies with
+  A local static risk scanning tool. Scans files, folders or disks on the user machine to identify
+  potential risk files and abnormal scripts. Supports quick, standard and deep scanning strategies with
   filtering by file type such as EXE, DLL, MSI, JS and PS1, shows live scanning progress, and produces a
-  classified report covering no-detection, suspicious, malicious and unscannable files, with coverage status.
+  classified report covering no-detection, suspicious, high-risk and unscannable files, with coverage status.
+  Read-only static analysis only; it never executes or removes files and is not a replacement for professional security software.
 author: icoolkj
 license: MIT
 metadata:
@@ -29,16 +32,16 @@ metadata:
 allowed-tools: Bash(python:*)
 ---
 
-# Security Scanner：本地静态风险扫描工具
+# 本地静态风险扫描：文件风险识别工具
 
-> 对本地文件进行静态风险分析，检测可疑特征并生成分类报告；不执行、删除或隔离文件。
+> 对本地文件进行只读静态特征分析，识别异常特征并生成分类报告；不执行、删除或隔离任何文件。
 
 ## 核心原则
 
-1. **只检测不清除**：本工具仅扫描和报告，不删除、不隔离、不修改任何文件。
-2. **多维度检测**：结合文件哈希、文件头签名、脚本内容模式、文件名特征、PE 导入表等多维度判断。
-3. **分类清晰**：每个文件归类为未检出、可疑、恶意或未能检查，附带具体原因；“未检出”不代表绝对安全。
-4. **覆盖率透明**：逐项记录文件头、哈希、脚本、Office、压缩包、PE、LNK 检查状态；失败或未完整执行时不得给出无风险结论。
+1. **只分析不处置**：本工具仅扫描和报告，不删除、不隔离、不修改任何文件。
+2. **多维度识别**：结合文件哈希、文件头签名、脚本内容模式、文件名特征、可执行文件结构等多维度判断。
+3. **分类清晰**：每个文件归类为未检出、可疑、高风险或未能检查，附带具体原因；“未检出”不代表绝对安全。
+4. **覆盖率透明**：逐项记录文件头、哈希、脚本、Office、压缩包、可执行文件结构、快捷方式等检查状态；失败或未完整执行时不得给出无风险结论。
 5. **路径安全**：拒绝符号链接和 Windows reparse point；扫描前后核对文件元数据，发现变化时标记未完整。
 6. **压缩包透明**：超出条目/大小限制、加密、损坏或依赖外部工具的压缩包必须明确标记未完整检查。
 7. **进度可见**：扫描过程中实时输出已扫描文件数、耗时和当前目标。
@@ -47,12 +50,12 @@ allowed-tools: Bash(python:*)
 
 ## 何时触发
 
-用户要求扫描目录、检查文件安全性、排查可疑脚本、扫描U盘或下载目录时使用。典型场景：
+用户要求扫描目录、检查文件安全性、排查异常脚本、扫描U盘或下载目录时使用。典型场景：
 - "帮我扫描下载目录"
-- "检查这个 EXE 有没有病毒"
+- "检查这个 EXE 有没有风险"
 - "扫描我的 U 盘"
-- "检查这个 ZIP 里面有没有危险文件"
-- "扫描我的 Python 项目，排查可疑脚本"
+- "检查这个 ZIP 里面有没有异常文件"
+- "扫描我的 Python 项目，排查异常脚本"
 
 ## 工作流
 
@@ -69,7 +72,7 @@ Agent 根据用户意图确定三个核心参数：
 策略说明：
 - **quick**：文件名特征 + 文件头签名，不读取文件内容，速度最快
 - **standard**：quick + 文件哈希 + 脚本内容模式匹配，平衡速度与深度
-- **deep**：standard + 压缩包内检（ZIP 文件名 + 内部文件头，RAR/7Z 仅提示）+ 可执行文件 PE 导入表解析 + LNK 目标检测
+- **deep**：standard + 压缩包内检（ZIP 文件名 + 内部文件头，RAR/7Z 仅提示）+ 可执行文件结构分析 + 快捷方式目标检查
 
 如果用户未明确指定策略，根据目标规模自动选择：单文件 → quick，文件夹 → standard，磁盘/大型目录 → standard（提示用户可切换 deep）。
 
@@ -107,11 +110,11 @@ python scripts/scan.py \
 1. **文件名特征检测**：双扩展名（含多段）、可疑命名（强/弱信号）、伪装扩展名
 2. **文件头签名检测**：文件实际类型与扩展名是否匹配（含 .docx/.xlsx/.docm/.xlsm/.jar 映射至 ZIP 签名）
 3. **文件哈希检测**：计算 SHA256，与 `references/hashes.json` + `references/hash-sources.json` 合并比对；代码内不内置样本哈希，库为空时在 `limitations` 中明确写出"本次未做哈希比对"
-4. **脚本内容分析**：JS/PS1/PSM1/VBS/VBE/BAT/CMD/PY/SH/HTA/WSF/WSH/REG 中的危险模式
+4. **脚本内容分析**：JS/PS1/PSM1/VBS/VBE/BAT/CMD/PY/SH/HTA/WSF/WSH/REG 中的异常模式
 5. **Office 宏流检测**（standard/deep）：OOXML（docx/xlsx/pptx/docm/xlsm/pptm）查 `vbaProject.bin`；OLE（doc/xls/ppt）解析复合文档流名
 6. **压缩包内容检查**（deep）：ZIP 内部文件名 + 读取每个条目文件头（伪装 EXE/类型不一致）；RAR/7Z 仅提示"依赖外部工具"
-7. **PE 导入表分析**（deep）：真实解析 DOS→PE→OptionalHeader→Section Table→Import Descriptor→Thunk 链，检测进程注入/下载执行组合
-8. **LNK 目标检测**（deep）：校验 Shell Link 签名并检查目标字符串中是否包含 powershell/cmd/mshta/网络路径
+7. **可执行文件结构分析**（deep）：解析 DOS→PE→OptionalHeader→Section Table→导入描述表→Thunk 链，识别异常导入特征
+8. **快捷方式目标检查**（deep）：校验 Shell Link 签名并检查目标字符串中是否包含 powershell/cmd/mshta/网络路径
 
 #### JSON 结果字段（schema 1.1）
 
@@ -133,7 +136,7 @@ python scripts/scan.py \
 | 字段 | 说明 |
 |---|---|
 | `classification` | 内部枚举：`safe` / `suspicious` / `malicious` / `unchecked`；`safe` 仅为兼容旧报告保留 |
-| `result_label` | 对外展示标签：`no_detection` / `suspicious` / `malicious` / `unknown` |
+| `result_label` | 对外展示标签：`no_detection` / `suspicious` / `malicious` / `unknown`（`malicious` 展示为“高风险”） |
 | `coverage` | `complete` / `partial` / `incomplete`，适用检测项的执行完成度 |
 | `checks` | 逐项检测状态：`path_validation` `file_signature` `sha256` `script_analysis` `office_macro` `archive` `pe_analysis` `lnk_analysis`，取值 `completed` / `failed` / `incomplete` / `not_applicable` |
 | `errors` | 检测项未完成的具体原因列表 |
@@ -152,12 +155,12 @@ python scripts/report.py --input <结果JSON路径> --format <md|html> --output 
 
 1. **扫描概要**：目标、策略、耗时、文件总数
 2. **未检出文件**：当前检测范围内未检出已知风险的文件列表（HTML 报告中折叠展示；不代表绝对安全）
-3. **可疑文件**：存在风险特征但无法确认恶意的文件，附带可疑原因
-4. **恶意文件**：高度确信为恶意的文件，附带完整判定依据
+3. **可疑文件**：存在风险特征但无法确认高风险的文件，附带可疑原因
+4. **高风险文件**：具有明显异常特征的文件，附带完整判定依据
 5. **未能检查**：因权限、格式、损坏、超限等原因无法扫描的文件，附带原因
 
 Agent 在呈现报告时：
-- 恶意文件优先展示，红色标注，展示全部 findings
+- 高风险文件优先展示，红色标注，展示全部 findings
 - 可疑文件次优先，黄色标注
 - 未检出文件可折叠或摘要展示，并说明该结论不等于确认文件安全
 - 未能检查文件列出原因，建议用户手动检查
@@ -180,8 +183,8 @@ python scripts/update_hashes.py --list
 | 检查单个 EXE | quick | exe |
 | 扫描下载目录 | standard | exe,dll,msi,js,ps1,vbs,bat,zip,rar,7z,lnk,scr,hta,docm,xlsm |
 | 扫描 U 盘 | standard | exe,dll,msi,lnk,scr,com,js,ps1,vbs,bat,hta |
-| 检查 ZIP 内危险文件 | deep | zip,rar,7z |
-| 排查 Python 项目可疑脚本 | standard | py,sh,bat,ps1,js |
+| 检查 ZIP 内异常文件 | deep | zip,rar,7z |
+| 排查 Python 项目异常脚本 | standard | py,sh,bat,ps1,js |
 | 全盘深度扫描 | deep | 全部类型 |
 
 ## 安全约束
@@ -202,11 +205,11 @@ python scripts/update_hashes.py --list
 
 | 资源 | 路径 | 用途 |
 |------|------|------|
-| 检测规则数据 | `references/detection-rules.json` | 脚本模式 / PE 可疑导入 / 命名关键词 / VBA 危险标记；可自行增删，无需改代码 |
-| 威胁检测规则 | `references/threat-detection-rules.md` | 各检测维度的具体规则和判定标准 |
+| 检测规则数据 | `references/detection-rules.json` | 脚本模式 / 可执行文件可疑导入 / 命名关键词 / VBA 异常标记；可自行增删，无需改代码 |
+| 风险检测规则 | `references/threat-detection-rules.md` | 各检测维度的具体规则和判定标准 |
 | 扫描策略详解 | `references/scan-strategies.md` | 三种策略的检测项、适用场景和性能预期 |
 | 文件类型风险矩阵 | `references/file-type-risk-matrix.md` | 各文件类型的风险等级和检测重点 |
-| 恶意哈希库 | `references/hashes.json` | 可更新的 SHA256 恶意样本库（代码内不内置任何样本哈希） |
+| 风险样本哈希库 | `references/hashes.json` | 可更新的 SHA256 样本库（代码内不内置任何样本哈希） |
 | 哈希源 | `references/hash-sources.json` | 第三方 JSON 清单（平铺单文件，分发兼容；本地也可用 hash-sources/ 目录），扫描时自动合并 |
 | 扫描脚本 | `scripts/scan.py` | 主扫描引擎 |
 | 报告脚本 | `scripts/report.py` | 报告生成器 |
@@ -237,8 +240,9 @@ Copyright © 2026 icoolkj.com
 
 - `safe` 是为兼容旧报告保留的内部分类值；新报告应显示为“未检出（非绝对安全）”，并通过 `result_label: no_detection` 表达。
 - `unchecked` 表示至少一个适用检测项失败、未完成或目标文件在扫描期间发生变化。
-- `coverage=complete` 只表示当前策略定义的适用检查项已执行完成，不代表具备专业杀毒软件的检测覆盖率。
-- 当前版本仍是静态特征分析工具，**尚未集成 Microsoft Defender、MCP 或动态行为分析**。
+- `coverage=complete` 只表示当前策略定义的适用检查项已执行完成，不代表具备专业安全软件同等的检测覆盖率。
+- 当前版本仍是静态特征分析工具，**尚未集成专业安全引擎、MCP 或动态行为分析**。
 - ZIP 条目超限、加密、无法读取、条目大小超限，以及 RAR/7Z 未解析，均应视为覆盖不完整。
-- 扫描前后文件元数据变化会触发未完整状态；该检查是风险缓解措施，不是抵御本机高权限攻击者的强安全边界。
+- 扫描前后文件元数据变化会触发未完整状态；该检查是风险缓解措施，不是抵御高权限程序的强安全边界。
 - 不得执行被扫描文件，不得自动删除、隔离或修改文件。
+- 本工具仅提供静态特征参考，不是专业安全软件，不构成任何安全保障承诺。
