@@ -1,4 +1,4 @@
--- Canonical system-table baseline converted from the approved MySQL 8.4 schema.
+-- Canonical icoolkj-platform Web framework system-table baseline.
 -- Apply through a versioned PostgreSQL migration; this reference contains no DROP statements or seed rows.
 -- Preserve the project bootstrap requirement for vector and pgcrypto extensions separately.
 

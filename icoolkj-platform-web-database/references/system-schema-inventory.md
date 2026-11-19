@@ -16,7 +16,7 @@ Every project using this skill initializes all 33 tables from [system-schema.pos
 - Initialize the full table set, not only the rows above a feature area.
 - Apply schema through the project's versioned database migration system. Container entrypoint initialization can support a fresh local volume, but is not a substitute for migrations on existing deployments.
 - Preserve all columns, primary and unique keys, indexes, defaults, table/column comments, and timestamp-update triggers from the PostgreSQL reference.
-- Keep the application's PostgreSQL/pgvector stack and extension bootstrap. Do not execute the source MySQL export.
+- Keep the application's PostgreSQL/pgvector stack and extension bootstrap. Apply the bundled PostgreSQL DDL rather than an external or historical SQL export.
 - Add project-specific business tables after the baseline. Prefix each new physical table name with `icoolkj_`; keep column, index, constraint, trigger, and function names unprefixed.
 - If an existing codebase already has identity, tenant, department, role, or menu tables, plan compatibility and data convergence; do not silently maintain two competing sources of truth.
 - The reference contains schema only: it does not create demo users, roles, menus, dictionaries, or other seed rows.

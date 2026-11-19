@@ -1,4 +1,4 @@
-# PharmaMind Layout Patterns
+# icoolkj-platform Layout Patterns
 
 Choose the smallest layout that preserves the user's task context. Column count is a consequence of information architecture, not a visual target.
 
@@ -31,7 +31,7 @@ Left: product modules | Middle: selected module destinations | Right: current pa
 - Do not duplicate the middle menu in the right page body.
 - Put record-level master/detail panes inside the right work area; do not confuse those panes with the app's middle navigation.
 
-For PharmaMind, the four stable 组织与权限 destinations qualify for a middle navigation. Do not automatically add a middle navigation to every product module. Future modules get one only when they have three or more stable, related routes and repeated switching benefits the user.
+Use a middle navigation only when the current product module has at least three stable, related destinations that users switch between repeatedly. Do not automatically add a middle navigation to every module.
 
 ## Choosing the Pattern
 
@@ -41,17 +41,14 @@ For PharmaMind, the four stable 组织与权限 destinations qualify for a middl
 4. If the task is a wizard, focused form, or one-off action, use a focused single-column page even when launched from a three-column shell.
 5. Verify each column has a distinct job. Remove any column that only repeats context or decorates the page.
 
-## PharmaMind Administration Example
+## Generic Administration Example
 
 ```text
 Product modules     Organization & access       Current work area
-工作台              组织架构                    组织树 + 新增下级组织
-组织与权限          部门与岗位                  两个目录表格 + 对应创建操作
-质量知识库          员工账号                    员工名册 + 创建账号
-质量文件中心        角色与权限                  角色列表 + 权限编辑
-培训与考试
-培训档案
-AI Agent 接入
+Dashboard           Organization                Organization tree + details
+Administration      Departments and posts       Directory tables + create action
+Knowledge           User accounts                User list + account action
+Documents           Roles and permissions        Role list + permission editor
 ```
 
 The organization scope is shared context for admin pages, not another menu level. Display it once near the right page heading/toolbar. Keep its meaning explicit: a data-management filter is not the same thing as changing the authentication token's active organization.

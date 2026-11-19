@@ -2,11 +2,11 @@
 
 ## Naming Contract
 
-Only physical table names introduced for PharmaMind use the lowercase `icoolkj_` prefix. Column, index, constraint, trigger, and function names remain ordinary lowercase `snake_case` without that prefix. Keep table names recognizable and consistent with the approved domain schema. The complete 33-table baseline is mandatory for every project using this skill; feature-specific scope does not reduce the initialization set.
+Only physical table names introduced for icoolkj-platform use the lowercase `icoolkj_` prefix. Column, index, constraint, trigger, and function names remain ordinary lowercase `snake_case` without that prefix. Keep table names recognizable and consistent with the framework domain model. The complete framework baseline is mandatory for projects adopting this Web profile; feature-specific scope does not reduce the initialization set.
 
 | Object | Pattern | Example |
 | --- | --- | --- |
-| Table | `icoolkj_<source_table>` | `icoolkj_sys_user` |
+| Table | `icoolkj_<table_name>` | `icoolkj_sys_user` |
 | Column | `<source_column>` | `tenant_id` |
 | Primary key | `pk_<short_table>` | `pk_sys_user` |
 | Foreign key | `fk_<short_table>_<short_target>` | `fk_user_tenant` |
@@ -30,20 +30,19 @@ class User(Base):
 
 Foreign-key declarations, indexes, constraints, raw SQL, fixtures, and migration operations must point to the physical names. API request and response fields remain `id` and `tenant_id` unless a separately versioned API contract requires otherwise.
 
-## Mandatory System Baseline
+## Framework System Baseline
 
 - Initialize every table in [system-schema.postgresql.sql](system-schema.postgresql.sql) through a versioned migration, even if the first release uses only a subset. Add business tables on top; do not select only currently visible features.
 - Keep this baseline as the shared source for authentication, tenant, department, role, menu, audit, configuration, and messaging system data. Map feature models to it rather than creating parallel legacy-name equivalents.
-- The provided MySQL 8.4/InnoDB export has 33 tables, 455 columns, 33 primary keys, 18 unique indexes, and 97 ordinary indexes. The PostgreSQL conversion preserves table/column comments and the 21 automatic `updated_at` behaviors with triggers.
-- The source DDL has no foreign-key declarations and no `INSERT` seed rows. Do not claim referential constraints or populated reference data exist; add them only through a reviewed design/migration.
-- The conversion maps MySQL `datetime(3)` to PostgreSQL `timestamp(3) without time zone` to retain the source's timezone-naive storage. Confirm the application's timezone convention before exposing these values through APIs.
-- MySQL's `utf8mb4_0900_ai_ci`/`utf8mb4_unicode_ci` collation behavior has no automatic one-to-one PostgreSQL default. Review case/accent handling for lookups, uniqueness, and search; add explicit collation or normalized indexes where required.
+- The bundled framework DDL currently defines 33 tables, 455 columns, 33 primary keys, 18 unique constraints, 97 ordinary indexes and 21 automatic `updated_at` trigger behaviors. Treat these counts as a validation target for this version of the framework artifact.
+- The baseline DDL contains schema only and no seed rows. Do not claim referential constraints or populated reference data exist unless the active migration explicitly adds them.
+- The DDL uses PostgreSQL types and syntax directly. Confirm the application's timezone, collation, uniqueness and search policies before extending the baseline.
 
 ## Schema Source and Engine Adaptation
 
 - Start from the approved schema/design artifact for domain entities, relationships, lifecycle fields, tenant scope, and business constraints.
 - Reconcile the artifact with the current ORM models, migrations, seed data, and runtime database before implementation. Record differences rather than silently choosing one.
-- The supplied `icoolkj.sql` is the domain schema source, not executable project DDL. The PostgreSQL-converted system file is the target-dialect baseline for PharmaMind and other projects using this skill.
+- The bundled PostgreSQL file is the executable framework baseline. A project's own migrations and approved architecture documents remain authoritative for project-specific extensions.
 - Convert engine-specific types and behavior deliberately, including auto-increment/identity, JSON, timestamps, indexes, collations, defaults, and foreign-key semantics. Review PostgreSQL identifier limits and extension requirements.
 - A schema change should define primary keys, nullability, defaults, foreign keys, deletion behavior, unique rules, query indexes, tenant boundaries, and audit/soft-delete behavior where applicable.
 - Tenant-scoped data must include the correct tenant key and enforce tenant-aware uniqueness and authorization. A frontend organization selector is never a substitute for database/query/API isolation.
