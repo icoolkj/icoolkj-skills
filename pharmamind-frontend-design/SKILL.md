@@ -4,13 +4,13 @@ description: |
   PharmaMind-AI 前端工程与交互设计技能，面向 Vue 3 + Element Plus 的信息架构、认证组织上下文、RBAC 菜单、后台工作流、表格、表单、按钮行为、数据库契约对齐和响应式验收。
   当用户要求优化 PharmaMind 前端、拆分管理菜单、对齐 API 或数据库结构、设计单栏/左右/左中右布局、改善提交流程或检查页面可用性时使用本技能。
 agent_created: true
-version: 1.4.0
+version: 1.5.0
 display_name: PharmaMind-AI 前端界面规划
 display_name_en: PharmaMind-AI Frontend Design
 description_zh: |
-  PharmaMind-AI 前端信息架构、导航布局、业务交互和数据库契约对齐技能，支持按任务复杂度选择单栏、左右或左中右布局。
+  PharmaMind-AI 前端信息架构、导航布局、业务交互和数据库契约对齐技能，包含必须初始化的 PostgreSQL 系统表基线，并支持按任务复杂度选择单栏、左右或左中右布局。
 description_en: |
-  Frontend information architecture, navigation layout, interaction design and database contract alignment skill for PharmaMind-AI. Chooses layout patterns based on the task and preserves schema/API compatibility.
+  Frontend information architecture, navigation layout, interaction design and database contract alignment skill for PharmaMind-AI. Includes a mandatory PostgreSQL system-schema baseline and preserves schema/API compatibility.
 author: icoolkj
 license: MIT
 metadata:
@@ -87,18 +87,21 @@ See [auth-scope-rbac.md](references/auth-scope-rbac.md) for the session, organiz
 
 ## Database Schema Alignment
 
-When a feature changes persisted data, treat the approved schema design as the business-structure reference and the active project's database models and migrations as the implementation authority. Do not copy a DDL file across database engines without an explicit compatibility review.
+When this skill is applied to a project, its complete 33-table system baseline in [system-schema.postgresql.sql](references/system-schema.postgresql.sql) is mandatory. Initialize every baseline table even when the first feature uses only a subset; feature-specific tables are additive. Use PostgreSQL/pgvector, not the MySQL source DDL.
 
-- For PharmaMind's target schema, every physical table and column name must start with `icoolkj_`. Preserve a supplied schema's entity names after the prefix, for example `sys_user` becomes `icoolkj_sys_user`, and `tenant_id` becomes `icoolkj_tenant_id`.
-- Apply the same namespace to indexes and named constraints (`icoolkj_pk_*`, `icoolkj_fk_*`, `icoolkj_uk_*`, `icoolkj_idx_*`, `icoolkj_ck_*`). Apply it to other explicitly named database objects when they are introduced.
-- Keep application-facing ORM attributes and API fields idiomatic and stable. In SQLAlchemy, map logical attributes such as `id` and `tenant_id` to physical names such as `icoolkj_id` and `icoolkj_tenant_id`; do not leak storage naming into JSON contracts unless the API explicitly requires it.
+- Treat the supplied `icoolkj.sql` as the domain schema source and its PostgreSQL file as the executable target-dialect baseline. Keep all 33 system tables and their full column/index/default/comment structure; do not hand-pick a minimal subset or replace the baseline with parallel user, tenant, role, or organization tables.
+- Prefix physical table names only: `sys_user` becomes `icoolkj_sys_user`. Keep column names, index names, constraint names, trigger names, and function names in ordinary lowercase `snake_case` without an `icoolkj_` prefix.
+- Keep application-facing ORM attributes and API fields idiomatic and stable. SQLAlchemy attributes such as `id` and `tenant_id` should map directly to columns with those same names; do not add a storage prefix to fields or JSON contracts.
 - Update foreign-key targets, unique constraints, indexes, seed data, raw SQL, tests, and migration references together. Review tenant-scoped uniqueness and query indexes as part of the schema, not as a later UI fix.
-- Check the active database dialect before writing migrations. The supplied `icoolkj.sql` is MySQL 8.4/InnoDB input; PharmaMind currently uses PostgreSQL with pgvector. Treat the SQL as a domain/schema reference, then map types, defaults, indexes, constraints, and identity behavior to PostgreSQL. Do not execute MySQL DDL or silently switch the project database.
-- For an existing database, do not rename or drop tables/columns as a naming-only cleanup. First inventory consumers and data, write a forward-and-rollback or compatibility migration plan, and preserve deployed data. Keep old names until a migration is explicitly approved and safely staged.
+- Apply the full baseline through the active project's versioned migration system. Docker init scripts alone are insufficient for an already initialized volume. Retain the existing pgvector/pgcrypto bootstrap and add no duplicate system tables under legacy names.
+- For an existing database, reconcile its models and deployed data first. Map existing features to these canonical system tables and stage any convergence migration; do not drop data, blindly rename deployed identifiers, or create competing identity/RBAC sources.
+- The supplied schema defines no foreign keys and contains no `INSERT` seed rows. Preserve that fact in the baseline; add referential constraints or seed records only when separately designed and explicitly specified.
+- Preserve source semantics during dialect conversion: JSON becomes `jsonb`, `mediumtext` becomes `text`, Boolean flags become PostgreSQL `boolean`, and MySQL `ON UPDATE` timestamps use PostgreSQL triggers. Review MySQL case/accent-insensitive collations and PostgreSQL uniqueness/search behavior before relying on equivalent comparisons.
+- Keep vector/pgcrypto extension setup required by the application. The system-table baseline does not replace or remove those extensions.
 - Check identifier length and case behavior for the target engine. Shorten long constraint/index names deterministically and verify that generated names remain unique.
 - A naming prefix provides a project namespace, not legal copyright protection. Keep ownership evidence in the repository license, copyright notice, and project records; do not treat a database prefix as a substitute.
 
-See [database-schema-conventions.md](references/database-schema-conventions.md) for the naming map and migration checklist.
+See [database-schema-conventions.md](references/database-schema-conventions.md) for the naming map, full table inventory, and migration checklist.
 
 ## API Contract Alignment
 
@@ -197,8 +200,9 @@ Use the templates in [templates/](templates/) when a change involves multiple ro
 - Does every visible action map to an implemented route or API operation?
 - Do forms, tables, dialogs, and feedback reflect the API's actual capabilities?
 - Were the backend permission dependency and organization membership checks inspected for each new action?
-- If persistence changes, do physical table, column, index, and named constraint identifiers follow the `icoolkj_` namespace, and are logical API/ORM names kept compatible?
-- Does the migration match the active database engine and preserve existing data?
+- Is the complete 33-table PostgreSQL baseline initialized, with app-specific tables only added on top?
+- Do only physical table names use `icoolkj_`, with columns and other database object names unprefixed?
+- Does the versioned migration match PostgreSQL/pgvector and preserve deployed data?
 - Are loading and stale-data races handled when switching scope or route?
 - Do async actions prevent duplicate submission and preserve input on failure?
 - Are no-results, no-permission, API failure, conflict, and not-implemented states distinct?

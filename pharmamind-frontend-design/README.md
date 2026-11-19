@@ -14,7 +14,7 @@
 - 认证上下文、JWT 当前组织、页面数据范围和 RBAC 菜单
 - API 权限契约、请求竞态、表格规模化和字段级校验
 - 宽屏、中等宽度、移动端和键盘焦点验收
-- 数据库结构与 ORM/API 契约对齐，以及 `icoolkj_` 物理命名空间规则
+- 必须完整初始化的 33 张 PostgreSQL 系统表；仅表名使用 `icoolkj_` 前缀，字段及其他对象名保持常规命名
 
 ## 使用原则
 
@@ -24,7 +24,7 @@
 - 左右：主从列表、详情或权限编辑
 - 左中右：稳定的产品级一级导航、三个以上二级功能和右侧工作区
 
-详细规则见 [SKILL.md](./SKILL.md)、[layout-patterns.md](./references/layout-patterns.md)、[button-interaction.md](./references/button-interaction.md)、[auth-scope-rbac.md](./references/auth-scope-rbac.md)、[async-workflows.md](./references/async-workflows.md)、[table-form-patterns.md](./references/table-form-patterns.md)、[database-schema-conventions.md](./references/database-schema-conventions.md) 和 [visual-qa.md](./references/visual-qa.md)。
+详细规则见 [SKILL.md](./SKILL.md)、[layout-patterns.md](./references/layout-patterns.md)、[button-interaction.md](./references/button-interaction.md)、[auth-scope-rbac.md](./references/auth-scope-rbac.md)、[async-workflows.md](./references/async-workflows.md)、[table-form-patterns.md](./references/table-form-patterns.md)、[database-schema-conventions.md](./references/database-schema-conventions.md)、[system-schema-inventory.md](./references/system-schema-inventory.md)、[system-schema.postgresql.sql](./references/system-schema.postgresql.sql) 和 [visual-qa.md](./references/visual-qa.md)。
 
 多路由、权限或验收状态的改动可直接参考 [templates](./templates/)。
 
