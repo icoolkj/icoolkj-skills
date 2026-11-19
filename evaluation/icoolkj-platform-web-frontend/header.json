@@ -1,0 +1,13 @@
+{
+  "dataset_name": "icoolkj-platform-web-frontend-eval",
+  "profile": {
+    "dimensions": [
+      { "key": "task_completion", "name": "任务完成度", "weight": 0.35 },
+      { "key": "instruction_follow", "name": "指令遵循", "weight": 0.25 },
+      { "key": "invocation_accuracy", "name": "技能调用准确性", "weight": 0.15 },
+      { "key": "factuality", "name": "代码与上下文准确性", "weight": 0.1 },
+      { "key": "rule_compliance", "name": "交互规范合规", "weight": 0.15 }
+    ],
+    "aggregation": { "pass_threshold": 60, "excellent_threshold": 85 }
+  }
+}

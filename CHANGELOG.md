@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- 为三项 icoolkj-platform Web 技能新增回归评测集，覆盖布局、权限保存、组织授权、PostgreSQL 命名和安全初始化。
 - 新增 `icoolkj-platform-web-frontend`、`icoolkj-platform-web-backend` 和 `icoolkj-platform-web-database` 三项框架技能。
 - 将前端交互、后端认证授权和数据库建表职责分开；数据库技能保留框架 PostgreSQL/pgvector 基线 DDL。
 - 移除旧项目化技能入口和项目专属数据库来源说明，避免将项目记忆固化到可复用技能。
