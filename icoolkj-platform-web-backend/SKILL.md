@@ -1,13 +1,13 @@
 ---
 name: icoolkj-platform-web-backend
-description: icoolkj-platform 多租户 Web 后端工程技能，覆盖 JWT 身份认证、组织租户上下文、RBAC、API 契约、数据范围、审计、服务端隔离和 SQL 外置组织。当用户要求实现或审查登录、权限、组织切换、多租户隔离、接口保护或 SQL 存储规范时使用。不用于前端视觉布局或数据库基线建表。
+description: icoolkj-platform 多租户 Web 后端工程技能，覆盖 JWT 身份认证、组织租户上下文、RBAC、API 契约、数据范围、审计、服务端隔离、SQL 外置组织和 YAML 系统初始化。当用户要求实现或审查登录、权限、组织切换、多租户隔离、接口保护、初始化数据迁移或 SQL 存储规范时使用。不用于前端视觉布局或数据库基线建表。
 agent_created: true
-version: 1.2.0
+version: 1.3.0
 display_name: icoolkj-platform Web 后端
 display_name_en: icoolkj-platform Web Backend
-description_zh: icoolkj-platform 多租户 Web 后端工程技能，覆盖 JWT 身份认证、组织租户上下文、RBAC、API 契约、数据范围、审计、服务端隔离和 SQL 外置组织。当用户要求实现或审查登录、权限、组织切换、多租户隔离、接口保护或 SQL 存储规范时使用。不用于前端视觉布局或数据库基线建表。
+description_zh: icoolkj-platform 多租户 Web 后端工程技能，覆盖 JWT 身份认证、组织租户上下文、RBAC、API 契约、数据范围、审计、服务端隔离、SQL 外置组织和 YAML 系统初始化。当用户要求实现或审查登录、权限、组织切换、多租户隔离、接口保护、初始化数据迁移或 SQL 存储规范时使用。不用于前端视觉布局或数据库基线建表。
 description_en: |
-  Backend authentication, organization context, RBAC, API contracts, data scope, server-side isolation and externalized SQL organization skill for icoolkj-platform multi-tenant Web applications. It does not define frontend visual layouts or the database baseline.
+  Backend authentication, organization context, RBAC, API contracts, data scope, server-side isolation, externalized SQL and YAML bootstrap conventions for icoolkj-platform multi-tenant Web applications. It does not define frontend visual layouts or the database baseline.
 author: icoolkj
 license: MIT
 metadata:
@@ -31,6 +31,19 @@ Implement and review the server-side contracts that make a multi-tenant Web appl
 4. Apply authorization at the service or policy boundary, not only in route visibility or frontend menus.
 5. Add audit or revocation behavior when the operation changes access, identity, organization membership or sensitive data.
 6. Update API documentation, tests or migration references that are part of the existing project workflow.
+
+## System Bootstrap and Seed Data
+
+- For system initialization, keep declarative seed data in versioned YAML and database behavior in `backend/app/sql/bootstrap/`; do not hardcode permission, navigation, role or other seed catalogs in Python.
+- Keep credentials and secrets out of YAML. Read initial credentials from the project's established environment or secret configuration.
+- Reuse the project's existing bootstrap repository, SQL loader and `@id` query contract. Put single-table statements in physical-table-named SQL files and cross-table operations under `bootstrap/queries/`.
+- Keep Python limited to loading and validating YAML, orchestration, Snowflake ID generation, credential hashing, existing idempotency and security checks, repository calls, ordering and transaction control. Preserve established behavior rather than replacing it during extraction.
+- Validate the entire seed document before writes. Reject duplicate YAML keys and duplicate codes, malformed types, invalid parent relationships and references to missing roles, permissions or navigation entries.
+- Run bootstrap through an explicit operator-friendly CLI after schema migrations. Do not trigger it from application startup or FastAPI lifespan.
+- Keep initialization atomic where the existing schema permits: preserve the transaction boundary and rollback on failure. Test validation failures, repeated runs, security invariants, rollback and the absence of startup-triggered writes.
+- Keep schema DDL and versioned migrations in the database skill's migration locations; bootstrap SQL is runtime initialization behavior, not a substitute for migrations.
+
+See [bootstrap-seeding.md](references/bootstrap-seeding.md) for the detailed data, SQL, CLI and verification contract.
 
 ## SQL Storage and Repository Boundary
 

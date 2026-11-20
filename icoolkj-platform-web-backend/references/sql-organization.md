@@ -29,23 +29,24 @@ backend/
         icoolkj_sys_user.sql
         queries/
           initial_data.sql
+    seeds/
+      bootstrap.yaml
   migrations/
     sql/
       icoolkj-platform-system-schema.sql
-  seeds/
-    sql/
-      platform-menus.sql
 ```
 
 The exact domain names may follow the project, but the layers stay separate:
 
-- `app/sql/` contains runtime read and write queries.
+- `app/sql/` contains runtime read/write queries and the dedicated `app/sql/bootstrap/` initialization SQL domain.
 - Single-table statements belong in a file named after the physical table, including its framework prefix where applicable.
-- Queries that join tables or implement a multi-table business operation belong under `<domain>/queries/`, grouped by business area.
+- Queries that join tables or implement a multi-table business operation belong under `<domain>/queries/`, grouped by business area; bootstrap cross-table statements belong under `app/sql/bootstrap/queries/`.
 - `app/repositories/` contains SQL loading, parameter binding, transaction boundaries and result mapping.
+- `app/seeds/` contains declarative YAML initialization data only; do not put credentials or SQL text in seed files.
 - `migrations/sql/` contains schema DDL used by versioned migrations.
-- `seeds/sql/` contains repeatable or versioned initialization data when the project has a seed subsystem.
 - `scripts/sql/` is reserved for operator or maintenance scripts and is never loaded by the application.
+
+Bootstrap data and bootstrap SQL are separate layers: YAML describes values and relationships, while `app/sql/bootstrap/` implements database operations through the existing repository and `@id` query contract. See [bootstrap-seeding.md](bootstrap-seeding.md) for validation, transaction, CLI and testing requirements.
 
 ## Python and SQLAlchemy Default
 
@@ -123,4 +124,6 @@ Repository methods must not accept a raw client-provided scope as sufficient aut
 - Do result aliases and cardinality match the API schema?
 - Are write queries covered by transaction and conflict handling tests?
 - Is migration DDL kept under `migrations/sql/` instead of runtime SQL?
+- Are initialization values in YAML and bootstrap SQL kept in `app/sql/bootstrap/`, with no secrets in the seed?
+- Does bootstrap use the existing repository, remain idempotent and transactional, and run only through an explicit CLI?
 - If XML is used, is there an existing XML mapper framework that justifies it?
