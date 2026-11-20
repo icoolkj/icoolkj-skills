@@ -19,7 +19,7 @@ icoolkj AI Agent 标准化技能库，沉淀可直接给大模型调用的工具
 | `poster-designer` | 1.1.2 | 宣传海报与 A4 单页：必保留清单、品牌素材、整图生成/确定性排版 | 做海报、宣传单页、海报改图、海报方案、生图提示词 |
 | `poster-designer-lab` | 1.3.0 | 实验版：HTML 固定画布出图、设计方向与防重复、Logo 分析与导出实测 | HTML 海报、A4 单页、导出 PNG、版式防重复 |
 | `icoolkj-platform-web-frontend` | 1.0.0 | 多租户 Web 前端信息架构、菜单布局、交互状态和响应式验收 | 前端页面、一级/二级菜单、左中右布局、表格表单、按钮流程 |
-| `icoolkj-platform-web-backend` | 1.1.0 | JWT、组织上下文、RBAC、API 契约、服务端多租户隔离和 SQL 外置规范 | 登录认证、权限、组织切换、接口保护、数据范围、SQL 存储位置 |
+| `icoolkj-platform-web-backend` | 1.2.0 | JWT、组织上下文、RBAC、API 契约、多租户隔离及表级 SQL 分段规范 | 登录认证、权限、组织切换、接口保护、数据范围、SQL 文件组织 |
 | `icoolkj-platform-web-database` | 1.0.0 | icoolkj-platform 框架系统表、PostgreSQL/pgvector DDL 和迁移校验 | 创建系统表、PostgreSQL DDL、表命名、租户隔离、数据库迁移 |
 
 已归档：`md-doc-bridge`（第一版双层文档实现）已移到 `archive/`，由 `md-word-dual` 取代，原因见 `archive/README.md`。

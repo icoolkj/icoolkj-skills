@@ -2,7 +2,7 @@
 name: icoolkj-platform-web-backend
 description: icoolkj-platform 多租户 Web 后端工程技能，覆盖 JWT 身份认证、组织租户上下文、RBAC、API 契约、数据范围、审计、服务端隔离和 SQL 外置组织。当用户要求实现或审查登录、权限、组织切换、多租户隔离、接口保护或 SQL 存储规范时使用。不用于前端视觉布局或数据库基线建表。
 agent_created: true
-version: 1.1.0
+version: 1.2.0
 display_name: icoolkj-platform Web 后端
 display_name_en: icoolkj-platform Web Backend
 description_zh: icoolkj-platform 多租户 Web 后端工程技能，覆盖 JWT 身份认证、组织租户上下文、RBAC、API 契约、数据范围、审计、服务端隔离和 SQL 外置组织。当用户要求实现或审查登录、权限、组织切换、多租户隔离、接口保护或 SQL 存储规范时使用。不用于前端视觉布局或数据库基线建表。
@@ -34,7 +34,10 @@ Implement and review the server-side contracts that make a multi-tenant Web appl
 
 ## SQL Storage and Repository Boundary
 
-- Store runtime business SQL in `backend/app/sql/<domain>/<operation>.sql`; keep one statement or one cohesive query per file.
+- Store runtime business SQL under `backend/app/sql/<domain>/`. Put single-table operations in a `.sql` file named after the physical table, then separate callable statements with `-- @id: query_name` markers.
+- Put joins and multi-table business queries under `<domain>/queries/<business_area>.sql`. Group related query blocks by business area instead of creating one file per operation.
+- Treat each `@id` block as one executable SQL statement. The next marker ends the block; semicolons do not. Keep query IDs stable and unique within the repository domain, and do not add empty CRUD placeholders.
+- Recursively load SQL files and validate marker syntax, non-empty blocks and duplicate IDs during repository initialization. Resolve repository calls by query ID and pass values through named bind parameters.
 - Keep the Python repository in `backend/app/repositories/<domain>/`. Repositories load SQL, bind named parameters and map results; route handlers and services must not contain multi-line SQL.
 - Keep PostgreSQL DDL and versioned migration SQL in `backend/migrations/sql/`. Do not mix runtime queries, seed data and migration DDL in the same directory.
 - Use `.sql` files as the default for Python and SQLAlchemy projects. Use XML only when the project already uses an XML mapper framework; do not introduce XML and `.sql` for the same repository layer.
